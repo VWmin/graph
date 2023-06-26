@@ -23,28 +23,26 @@ def improved_relavence_matrix(G:nx.Graph, D, S2R):
     # initialize relavence matrix
     relavence = [[set() for i in range(n)] for j in range(n)]
     for s in S2R:
-        for r in S2R[s]:
-            paths = all_simple_paths_cutoff_weight(G, s, r, D[s])
-            for path in paths:
-                for i in range(len(path)-1):
-                    x, y = path[i], path[i+1]
-                    x, y =  (y, x) if (x > y) else (x, y)
-                    relavence[x][y].add(s)
+        paths = all_simple_paths_cutoff_weight(G, s, set(S2R), D[s])
+        for path in paths:
+            for i in range(len(path)-1):
+                x, y = path[i], path[i+1]
+                x, y =  (y, x) if (x > y) else (x, y)
+                relavence[x][y].add(s)
     return relavence
 
-def all_simple_paths_cutoff_weight(G, source, target, cutoff):
+def all_simple_paths_cutoff_weight(G, source, targets:set, cutoff):
     # parameters check
     if source not in G:
         raise nx.NodeNotFound(f"source node {source} not in graph")
-    if target in G:
-        targets = {target}
-    else:
-        try:
-            targets = set(target)
-        except TypeError as err:
-            raise nx.NodeNotFound(f"target node {target} not in graph") from err
+    for target in targets:
+        if target not in G:
+            raise nx.NodeNotFound(f"target node {target} not in graph")
     if source in targets:
-        return nx._empty_generator()
+        if len(targets) != 1:
+            targets = targets - {source}
+        else:
+            return nx._empty_generator()
     
     # dfs
     visited = {source: True}

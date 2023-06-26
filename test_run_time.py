@@ -51,7 +51,7 @@ def relavence_matrix_demo():
 
 def all_simple_path_demo():
     G = random_graph.demo_graph()
-    paths = relavence_matrix.all_simple_paths_cutoff_weight(G, 0, 7, 90)
+    paths = relavence_matrix.all_simple_paths_cutoff_weight(G, 0, {4, 7}, 90)
     # paths = relavence_matrix.dfs(G, 0, 7, 90)
     for path in paths:
         print(path)
@@ -60,5 +60,6 @@ def all_simple_path_demo():
 # all_simple_path_demo()
 # relavence_matrix_demo()
 test_relaven_run_time()
+
 
 
