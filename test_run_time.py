@@ -31,11 +31,7 @@ def test_relaven_run_time():
 
     print('relavence1 cost time: ', t4 - t3)
     print('relavence2 cost time: ', t5 - t4)
-    for i in range(n):
-        for j in range(n):
-            if relavence1[i][j] != relavence2[i][j]:
-                print('error')
-                return
+    print(relavence1 == relavence2)
 
 
 def relavence_matrix_demo():
@@ -49,10 +45,9 @@ def relavence_matrix_demo():
         0: [4, 7],
         1: [8]
     }
-    # relavence = relavence_matrix(G, distance, D, S2R)
-    relavence = relavence_matrix.improved_relavence_matrix(G, D, S2R)
-    for i in range(len(relavence)):
-        print(relavence[i])
+    relavence1 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
+    relavence2 = relavence_matrix.improved_relavence_matrix(G, D, S2R)
+    print(relavence1 == relavence2)
 
 def all_simple_path_demo():
     G = random_graph.demo_graph()

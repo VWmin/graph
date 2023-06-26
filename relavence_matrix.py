@@ -27,7 +27,9 @@ def improved_relavence_matrix(G:nx.Graph, D, S2R):
             paths = all_simple_paths_cutoff_weight(G, s, r, D[s])
             for path in paths:
                 for i in range(len(path)-1):
-                    relavence[path[i]][path[i+1]].add(s)
+                    x, y = path[i], path[i+1]
+                    x, y =  (y, x) if (x > y) else (x, y)
+                    relavence[x][y].add(s)
     return relavence
 
 def all_simple_paths_cutoff_weight(G, source, target, cutoff):
