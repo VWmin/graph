@@ -33,6 +33,14 @@ def test_relaven_run_time():
     print('relavence2 cost time: ', t5 - t4)
     print(relavence1 == relavence2)
 
+def test_kmb_run_time():
+    n, p, w = 3000, 0.01, 100
+    G = random_graph.random_graph(n, p, w)
+    t1 = time.time()
+    relavence_matrix.KMB(G, relavence_matrix.random_S(n, 0.1))
+    t2 = time.time()
+    print('KMB cost time: ', t2 - t1)
+
 
 def relavence_matrix_demo():
     G = random_graph.demo_graph()
@@ -59,7 +67,8 @@ def all_simple_path_demo():
 # nx.all_simple_paths()
 # all_simple_path_demo()
 # relavence_matrix_demo()
-test_relaven_run_time()
+# test_relaven_run_time()
+test_kmb_run_time(  )
 
 
 

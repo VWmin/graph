@@ -2,6 +2,7 @@ import random_graph
 import networkx as nx
 import random
 import numpy as np
+import time
 
 def relavence_matrix(G:nx.Graph, distance, D, S2R):
     n = G.number_of_nodes()
@@ -101,31 +102,40 @@ def KMB(G:nx.Graph, terminals):
     #     for r in R:
     #         dis[s][r] = nx.single_source_dijkstra(G, s, r)
     # 1. get G1
+    t0 = time.time()
     dis = {}
-    for t in terminals:
-        dis[t] = nx.single_source_dijkstra(G, t)
     G1 = nx.Graph()
-    for t in terminals:
-        for t2 in terminals:
-            if t == t2:
-                continue
-            G1.add_edge(t, t2, weight=dis[t][0][t2])
+    for i in range(len(terminals)):
+        paths = nx.single_source_dijkstra(G, terminals[i])
+        for j in range(i+1, len(terminals)):
+            ii, jj = terminals[i], terminals[j]
+            if ii not in dis:
+                dis[ii] = {}
+            dis[ii][jj] = (paths[0][jj], paths[1][jj])
+            G1.add_edge(ii, jj, weight=dis[ii][jj][0])
             
+    t1 = time.time()
+    print("G1 cost: ", t1-t0)
 
     # 2. prime G1
-    
     T1E = nx.minimum_spanning_edges(G1, data=False)
+    t2 = time.time()
+    print("prime G1 cost: ", t2-t1)
 
     # 3. recover Gs
     Gs = nx.Graph()
-    for edge in sorted(sorted(e) for e in list(T1E)):
+    for edge in list(T1E):
         i, j = edge
-        path = dis[i][1][j]
+        path = dis[i][j][1]
         for k in range(len(path)-1):
             Gs.add_edge(path[k], path[k+1], weight=G[path[k]][path[k+1]]['weight'])
+    t3 = time.time()
+    print("recover Gs cost: ", t3-t2)
     
     # 4. prime Ts
     Ts = nx.minimum_spanning_tree(Gs)
+    t4 = time.time()
+    print("prime Ts cost: ", t4-t3)
 
     # 5. reserve terminals - remove any leaf that not in terminals
     # 5.1 collect leafs
@@ -134,15 +144,17 @@ def KMB(G:nx.Graph, terminals):
     for node in Ts.nodes:
         if Ts.degree(node) == 1:
             leafs.add(node)
+    leafs = leafs - target
     # 5.2 remove leaf and edge not realated to terminals
-    while leafs != target:
-        for node in leafs:
-            if node not in target:
-                next = node
-                while next:
-                    neighbors = list(Ts.neighbors(next))
-                    Ts.remove_node(next)
-                    next = neighbors[0] if len(neighbors) == 1 else None
+    for node in leafs:
+        # print("terminals: ", target, ", leafs: ", leafs,  ", checking node: ", node)
+        next = node
+        while next:
+            neighbors = list(Ts.neighbors(next))
+            Ts.remove_node(next)
+            next = neighbors[0] if len(neighbors) == 1 else None
+    t5 = time.time()
+    print("reserve terminals cost: ", t5-t4)
     return Ts
 
 def random_S(n, p):
