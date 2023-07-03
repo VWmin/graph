@@ -33,8 +33,35 @@ def naive_landmark_labeling(G:nx.Graph):
     
     return landmark_label
 
+def pruned_bfs(G:nx.Graph, vk, Lk_1):
+    # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
+    que = [vk]
+
+    P = {v:inf for v in G.nodes}
+    P[vk] = 0
+    
+    Lk = Lk_1.copy()
+
+    while que:
+        u = que.pop(0)
+        if query_distance(Lk_1, vk, u) <= P[u]:
+            continue
+        # Lk[u] <- Lk_1[u] U {vk: P[u]}
+        Lk_1[u][vk] = P[u]
+        Lk[u] = Lk_1[u]
+        for w in G.neighbors(u):
+            if P[w] == inf:
+                P[w] = P[u] + 1
+                que.append(w)
+    return Lk
+
+
 def pruned_landmark_labeling(G:nx.Graph):
-    pass
+    L = dict()
+    for v in G.nodes:
+        L = pruned_bfs(G, v, L)
+    return L
+        
 
 def query_distance(labels, u, v):
     """
@@ -68,3 +95,9 @@ def query_distance(labels, u, v):
 # print("d2: ", d2)
 
 # random_graph.print_graph(G)
+
+G = random_graph.demo_graph()
+labels1 = pruned_landmark_labeling(G)
+labels2 = naive_landmark_labeling(G)
+print(labels1)
+print(labels2)
