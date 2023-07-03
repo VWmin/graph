@@ -57,47 +57,44 @@ def pruned_bfs(G:nx.Graph, vk, Lk_1):
 
 
 def pruned_landmark_labeling(G:nx.Graph):
-    L = dict()
+    L = {v:dict() for v in G.nodes}
     for v in G.nodes:
+        # print("v: ", v)
         L = pruned_bfs(G, v, L)
     return L
         
 
 def query_distance(labels, u, v):
-    """
-    Query distance between u and v using landmark labels
-    :param labels: landmark label dictionary
-    :param u: vertex u
-    :param v: vertex v
-    :return: distance between u and v
-    """
-    if u == v:
-        return 0
     if u not in labels or v not in labels:
         return inf
     distance = inf
     for landmark in labels[u]:
         if landmark in labels[v]:
-            distance = min(distance, labels[landmark][u] + labels[landmark][v])
+            distance = min(distance, labels[u][landmark] + labels[v][landmark])
     return distance
 
 
-# t1 = time.time()
-# G = random_graph.random_graph(10, 0.3, 100)
+G = random_graph.random_graph(1000, 0.3, 100)
+t1 = time.time()
 # lables = naive_landmark_labeling(G)
-# t2 = time.time()
-# print("naive_landmark_labeling: ", t2 - t1)
+lables = pruned_landmark_labeling(G)
+t2 = time.time()
+print("naive_landmark_labeling: ", t2 - t1)
 
-# d1 = query_distance(lables, 0, 8)
-# print("d1: ", d1)
+d1 = query_distance(lables, 0, 597)
+t3 = time.time()
+print("d1: ", d1)
+print("cost1: ", t3 - t2)
 
-# d2 = nx.shortest_path_length(G, 0, 8)
-# print("d2: ", d2)
+d2 = nx.shortest_path_length(G, 0, 597)
+t4 = time.time()
+print("d2: ", d2)
+print("cost2: ", t4 - t3)
 
 # random_graph.print_graph(G)
 
-G = random_graph.demo_graph()
-labels1 = pruned_landmark_labeling(G)
-labels2 = naive_landmark_labeling(G)
-print(labels1)
-print(labels2)
+# G = random_graph.demo_graph()
+# labels1 = pruned_landmark_labeling(G)
+# labels2 = naive_landmark_labeling(G)
+# print(labels1)
+# print(labels2)
