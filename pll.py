@@ -33,34 +33,31 @@ def naive_landmark_labeling(G:nx.Graph):
     
     return landmark_label
 
-def pruned_bfs(G:nx.Graph, vk, Lk_1):
+def pruned_bfs(G:nx.Graph, vk, L):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
     que = [vk]
 
     # P = {v:inf for v in G.nodes}
     P = {vk:0}
-    
-    Lk = Lk_1.copy()
 
     while que:
         u = que.pop(0)
-        if query_distance(Lk_1, vk, u) <= P[u]:
+        if query_distance(L, vk, u) <= P[u]:
             continue
         # Lk[u] <- Lk_1[u] U {vk: P[u]}
-        Lk_1[u][vk] = P[u]
-        Lk[u] = Lk_1[u]
+        L[u][vk] = P[u]
+        
         for w in G.neighbors(u):
             if w not in P:
                 P[w] = P[u] + 1
                 que.append(w)
-    return Lk
+    
 
 
 def pruned_landmark_labeling(G:nx.Graph):
     L = {v:dict() for v in G.nodes}
     for v in G.nodes:
-        # print("v: ", v)
-        L = pruned_bfs(G, v, L)
+        pruned_bfs(G, v, L)
     return L
         
 
@@ -115,4 +112,5 @@ def test_timecost():
     print("naive_landmark_labeling: ", t3 - t2)
 
 
-test_timecost   ()
+# test_timecost()
+test_correctness()
