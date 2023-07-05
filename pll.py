@@ -1,6 +1,7 @@
 import networkx as nx
 import random_graph
 import time
+import line_profiler as lp
 
 inf = 1000000000
 
@@ -33,7 +34,7 @@ def naive_landmark_labeling(G:nx.Graph):
     
     return landmark_label
 
-def pruned_bfs(G:nx.Graph, vk, L, P):
+def pruned_bfs(G:nx.Graph, vk, L, P, T):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
     que = [vk]
     P[vk] = 0
@@ -42,7 +43,7 @@ def pruned_bfs(G:nx.Graph, vk, L, P):
     while que:
         u = que.pop(0)
         visited.append(u)
-        if query_distance(L, vk, u) <= P[u]:
+        if pruned_query_distance(L, T, u) <= P[u]:
             continue
         # Lk[u] <- Lk_1[u] U {vk: P[u]}
         L[u][vk] = P[u]
@@ -59,8 +60,16 @@ def pruned_landmark_labeling(G:nx.Graph):
     L = {v:dict() for v in G.nodes}
     P = {v:inf for v in G.nodes}
     for v in G.nodes:
-        pruned_bfs(G, v, L, P)
+        T = {w:L[v][w] for w in L[v]}
+        pruned_bfs(G, v, L, P, T)
     return L
+
+def pruned_query_distance(L, T, u):
+    distance = inf
+    for w in L[u]:
+        if w in T:
+            distance = min(distance, L[u][w] + T[w])
+    return distance
         
 
 def query_distance(labels, u, v):
@@ -113,6 +122,17 @@ def test_timecost():
     print("pruned_landmark_labeling: ", t2 - t1)
     print("naive_landmark_labeling: ", t3 - t2)
 
+def test_profile():
+    G = random_graph.random_graph(1000, 0.3, 100)
+    profile = lp.LineProfiler(pruned_landmark_labeling)
+    profile.add_function(pruned_query_distance)
+    profile.add_function(pruned_bfs)
+    profile.enable()
+    pruned_landmark_labeling(G)
+    profile.disable()
+    profile.print_stats()
 
-# test_timecost()
-test_correctness()
+
+# test_correctness()
+test_timecost()
+# test_profile()
