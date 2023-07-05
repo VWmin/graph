@@ -133,6 +133,6 @@ def test_profile():
     profile.print_stats()
 
 
-# test_correctness()
-test_timecost()
+test_correctness()
+# test_timecost()
 # test_profile()
