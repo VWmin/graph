@@ -8,7 +8,7 @@ inf = 1000000000
 
 
 def  weighted_pll(G:nx.Graph):
-    # G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
+    G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
     L = {v:dict() for v in G.nodes}
     for v in G.nodes:
         pruned_dijkstra(G, v, L)
@@ -95,7 +95,7 @@ def test_correctness():
     # random_graph.print_graph(G)
 
 def test_timecost():
-    G = random_graph.random_graph(1000, 0.3, 100)
+    G = random_graph.random_graph(500, 0.3, 100)
     t1 = time.time()
     labels1 = weighted_pll(G)
     t2 = time.time()
@@ -122,5 +122,5 @@ def test_profile():
 
 
 # test_correctness()
-# test_timecost()
-test_profile()
+test_timecost()
+# test_profile()
