@@ -98,11 +98,13 @@ def WPSL(G: nx.Graph):
     return L
 
 
-def multiprocess_step(shm_G, shm_G_size, shape, shm_L, shm_L_size, h, v):
+def multiprocess_step(shm_G_name, shm_G_size, shape, shm_L_name, shm_L_size, h, v):
+    shm_G = SharedMemory(name=shm_G_name)
     G_bytes = shm_G.buf[:shm_G_size]
     garr_from_bytes = np.frombuffer(G_bytes, dtype=np.float64).reshape(shape)
     G = nx.from_numpy_array(garr_from_bytes)
 
+    shm_L = SharedMemory(name=shm_L_name)
     L_bytes = shm_L.buf[:shm_L_size]
     L = pickle.loads(L_bytes)
 
@@ -124,6 +126,8 @@ def multiprocess_step(shm_G, shm_G_size, shape, shm_L, shm_L_size, h, v):
     del G_bytes
     del garr_from_bytes
     del L_bytes
+    shm_G.close()
+    shm_L.close()
     return ans
 
 
@@ -217,7 +221,7 @@ def multiprocess_WPSL(G: nx.Graph): \
         shm_L.buf[:shm_L_size] = L_bytes
 
         with Pool() as p:
-            ans = p.starmap(multiprocess_step, [(shm_G, shm_G_size, shape, shm_L, shm_L_size, h, v) for v in G.nodes])
+            ans = p.starmap(multiprocess_step, [(shm_G.name, shm_G_size, shape, shm_L.name, shm_L_size, h, v) for v in G.nodes])
             for v in range(len(ans)):
                 for w in ans[v]:
                     L[h][v][w] = ans[v][w]
