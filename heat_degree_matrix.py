@@ -51,6 +51,16 @@ def heat_degree_matrix(relavence, G:nx.Graph, S, D, B):
     heat = [[heat_degree_matrix_ij(i, j) for j in range(V)] for i in range(V)]
     return heat
 
+def heat_matrix_based_routing(heat, G:nx.Graph, S2R):
+    for u, v in G.edges:
+        G[u][v]['heat'] = heat[u][v]
+    for s in S2R:
+        Ts = {s}
+        for r in S2R[s]:
+            cost, path = nx.multi_source_dijkstra(G, Ts, target=r, weight='heat')
+            for i in path: Ts.add(i)
+            print(f"heat_matrix_based_routing: {s} -> {r}: {path}")
+
 def test_relevance_run_time():
     n = 500
     p_edge = 0.1
@@ -75,7 +85,7 @@ def test_relevance_run_time():
     print(f"relavence_matrix: {t3-t2}")
 
 if __name__ == '__main__':
-    number_of_nodes = 30
+    number_of_nodes = 2000
     prob_of_edge = 0.1
     weight_range = 100
     prob_of_src = 0.1
@@ -89,15 +99,14 @@ if __name__ == '__main__':
     D = relavence_matrix.random_D(S, weight_range) # Delay limit of each source
     B = relavence_matrix.random_B(S, bandwidth_range) # Bandwidth requirement of each source
 
+    t1 = time.time()
     # distance = relavence_matrix.general_floyd(G)
     distance = nx.floyd_warshall_numpy(G)
     relevance = relavence_matrix.relavence_matrix(G, distance, D, S2R)
     heat = heat_degree_matrix(relevance, G, S, D, B)
+    heat_matrix_based_routing(heat, G, S2R)
+    t2 = time.time()
+    print(f"heat_matrix_based_routing: {t2-t1}s")
 
-    for i in range(len(relevance)):
-        print(relevance[i])
     
-    print("------------------")
-    for i in range(len(heat)):
-        print(heat[i])
 
