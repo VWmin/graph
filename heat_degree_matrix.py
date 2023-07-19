@@ -5,6 +5,8 @@ import pll_weighted
 import random_graph
 import relavence_matrix
 
+inf = 1000000000
+
 
 def relevance_matrix_with_wpll(G:nx.Graph, D, S2R):
     n = G.number_of_nodes()
@@ -20,26 +22,36 @@ def relevance_matrix_with_wpll(G:nx.Graph, D, S2R):
     return relevance
 
 
-def heat_degree_matrix(relavence, G:nx.Graph, Ex, s, r):
-    # max_w = 0
-    # V = G.number_of_nodes()
-    # for u, v, w in G.edges.data('weight'):
-    #     max_w = max(max_w, w)
-    #
-    # def heat_degree_matrix_ij(Ts, i, j):
-    #     # 如果边ij是s的候选边，且已在以s为源的现存多播树中
-    #     # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
-    #     if s in relavence[i][j]:
-    #         if G[i][j] in Ts or checkB():
-    #             return 'case1'
-    #         else:
-    #             return 'case2'
-    #     else :
-    #         return 'case3'
-    pass
+def heat_degree_matrix(relavence, G:nx.Graph, S, D, B):
+    max_ld = 0
+    V = G.number_of_nodes()
+    for _, _, w in G.edges.data('weight'):
+        max_ld = max(max_ld, w)
 
+    def checkB(u, v):
+        # 检查边uv的带宽是否满足所有以其为候选边的源的带宽要求之和
+        u, v = (v, u) if u > v else (u, v)
+        sum = 0
+        for s in relavence[u][v]:
+            sum += B[s]
+        return (sum, sum <= G[u][v]['bandwidth'])
 
-if __name__ == '__main__':
+    
+    def heat_degree_matrix_ij(i, j):
+        # 如果边ij是s的候选边，且已在以s为源的现存多播树中
+        # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
+        if relavence[i][j]:
+            sum, satisify = checkB(i, j)
+            if satisify:
+                return G[i][j]['weight'] / (V*max_ld)
+            else:
+                return pow(sum/G[i][j]['bandwidth'], 2)
+        else:
+            return inf
+    heat = [[heat_degree_matrix_ij(i, j) for j in range(V)] for i in range(V)]
+    return heat
+
+def test_relevance_run_time():
     n = 500
     p_edge = 0.1
     w_range = 100
@@ -61,4 +73,31 @@ if __name__ == '__main__':
     relavence_matrix.relavence_matrix(G, distance, D, S2R)
     t3 = time.time()
     print(f"relavence_matrix: {t3-t2}")
+
+if __name__ == '__main__':
+    number_of_nodes = 30
+    prob_of_edge = 0.1
+    weight_range = 100
+    prob_of_src = 0.1
+    prob_of_recv = 0.1
+    bandwidth_range = 100
+
+    G = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
+    relavence_matrix.add_random_bandwidth_attr(G, bandwidth_range)
+    S = relavence_matrix.random_S(number_of_nodes, prob_of_src)
+    S2R = relavence_matrix.random_S2R(number_of_nodes, S, prob_of_recv)
+    D = relavence_matrix.random_D(S, weight_range) # Delay limit of each source
+    B = relavence_matrix.random_B(S, bandwidth_range) # Bandwidth requirement of each source
+
+    # distance = relavence_matrix.general_floyd(G)
+    distance = nx.floyd_warshall_numpy(G)
+    relevance = relavence_matrix.relavence_matrix(G, distance, D, S2R)
+    heat = heat_degree_matrix(relevance, G, S, D, B)
+
+    for i in range(len(relevance)):
+        print(relevance[i])
+    
+    print("------------------")
+    for i in range(len(heat)):
+        print(heat[i])
 
