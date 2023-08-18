@@ -258,6 +258,16 @@ def random_D(S, w):
         D[s] = random.randint(2*w, 5*w)
     return D
 
+def random_B(S, b):
+    B = {}
+    for s in S:
+        B[s] = random.randint(int(.2*b), int(.5*b))
+    return B
+
+def add_random_bandwidth_attr(G, b):
+    for u, v in G.edges:
+        G[u][v]['bandwidth'] = random.randint(int(.9*b), int(1.1*b))
+
 
 def test_relaven_run_time():
     n, p, w = 200, 0.3, 100
