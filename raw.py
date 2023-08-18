@@ -58,4 +58,4 @@ def test_relavence():
     relavence = gen_relavence(G, distance, D, S2R)
     return relavence
 
-test_relavence()
+# test_relavence()

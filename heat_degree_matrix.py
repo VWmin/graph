@@ -84,8 +84,8 @@ def test_relevance_run_time():
     t3 = time.time()
     print(f"relavence_matrix: {t3-t2}")
 
-if __name__ == '__main__':
-    number_of_nodes = 2000
+def test_heat_matrix_based_routing():
+    number_of_nodes = 200
     prob_of_edge = 0.1
     weight_range = 100
     prob_of_src = 0.1
@@ -93,11 +93,11 @@ if __name__ == '__main__':
     bandwidth_range = 100
 
     G = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
-    relavence_matrix.add_random_bandwidth_attr(G, bandwidth_range)
+    relavence_matrix.add_random_bandwidth_attr(G, bandwidth_range, .9, 1.1)
     S = relavence_matrix.random_S(number_of_nodes, prob_of_src)
     S2R = relavence_matrix.random_S2R(number_of_nodes, S, prob_of_recv)
     D = relavence_matrix.random_D(S, weight_range) # Delay limit of each source
-    B = relavence_matrix.random_B(S, bandwidth_range) # Bandwidth requirement of each source
+    B = relavence_matrix.random_B(S, bandwidth_range, .2, .5) # Bandwidth requirement of each source
 
     t1 = time.time()
     # distance = relavence_matrix.general_floyd(G)
@@ -107,6 +107,51 @@ if __name__ == '__main__':
     heat_matrix_based_routing(heat, G, S2R)
     t2 = time.time()
     print(f"heat_matrix_based_routing: {t2-t1}s")
+
+def test_member_change():
+    number_of_nodes = 30
+    prob_of_edge = 0.1
+    weight_range = 100
+    S = relavence_matrix.random_single_s(number_of_nodes)
+    prob_of_recv = 0.2
+    bandwidth_range = 100
+
+    G = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
+    relavence_matrix.add_random_bandwidth_attr(G, bandwidth_range, .5, .5)
+    S2R = relavence_matrix.random_S2R(number_of_nodes, S, prob_of_recv)
+    D = relavence_matrix.random_D(S, weight_range) # Delay limit of each source
+    B = relavence_matrix.random_B(S, bandwidth_range, .4, .4) # Bandwidth requirement of each source
+
+    distance = nx.floyd_warshall_numpy(G)
+    relevance = relavence_matrix.relavence_matrix(G, distance, D, S2R)
+    heat1 = heat_degree_matrix(relevance, G, S, D, B)
+
+    import random
+    # add = random.randint(0, 1)
+    add = 1
+    heat2 = None
+    heat3 = None
+    if add == 1:
+        r = random.randint(0, number_of_nodes-1)
+        if r in S2R[S[0]] or r == S[0]:
+            r = random.randint(0, number_of_nodes-1)
+        S2R[S[0]] = S2R.get(S[0], []) + [r]
+
+        relevance3 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
+        heat3 = heat_degree_matrix(relevance3, G, S, D, B)
+
+    print(f"S: {S[0]}\tR: {S2R[S[0]]}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
+
+    for i in range(len(heat1)):
+        for j in range(len(heat1[i])):
+            if heat1[i][j] == inf: continue
+            print(f"heat1[{i}][{j}]: {heat1[i][j]}\theat3[{i}][{j}]: {heat3[i][j]}\tdiff: {heat1[i][j]!=heat3[i][j]}\n")
+    
+
+
+if __name__ == '__main__':
+    test_member_change()
+    # test_heat_matrix_based_routing()
 
     
 

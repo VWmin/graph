@@ -135,5 +135,5 @@ def test_profile():
 
 
 # test_correctness()
-test_timecost()
+# test_timecost()
 # test_profile()

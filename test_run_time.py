@@ -68,7 +68,7 @@ def all_simple_path_demo():
 # all_simple_path_demo()
 # relavence_matrix_demo()
 # test_relaven_run_time()
-test_kmb_run_time(  )
+# test_kmb_run_time(  )
 
 
 

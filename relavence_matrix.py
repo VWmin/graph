@@ -195,6 +195,10 @@ def random_S(n, p):
             S.append(s)
     return S
 
+def random_single_s(n):
+    s = random.randint(0, n-1)
+    return [s]
+
 def random_S2R(n, S, p):
     if p<0 or p>1:
         p = 0.1
@@ -258,15 +262,15 @@ def random_D(S, w):
         D[s] = random.randint(2*w, 5*w)
     return D
 
-def random_B(S, b):
+def random_B(S, b, lower_p, upper_p):
     B = {}
     for s in S:
-        B[s] = random.randint(int(.2*b), int(.5*b))
+        B[s] = random.randint(int(lower_p*b), int(upper_p*b))
     return B
 
-def add_random_bandwidth_attr(G, b):
+def add_random_bandwidth_attr(G, b, lower_p, upper_p):
     for u, v in G.edges:
-        G[u][v]['bandwidth'] = random.randint(int(.9*b), int(1.1*b))
+        G[u][v]['bandwidth'] = random.randint(int(lower_p*b), int(upper_p*b))
 
 
 def test_relaven_run_time():
