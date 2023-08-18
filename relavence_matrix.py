@@ -19,6 +19,33 @@ def relavence_matrix(G:nx.Graph, distance, D, S2R):
                     relavence[i][j].add(s)
     return relavence
 
+def relavence_matrix_without_distance(G:nx.Graph, D, S2R):
+    n = G.number_of_nodes()
+    relavence = [[set() for i in range(n)] for j in range(n)]
+    for edge in list(G.edges):
+        i, j = edge
+        i, j =  (j, i) if (i > j) else (i, j)
+        for s in S2R:
+            R = S2R[s]
+            for r in R:
+                if nx.dijkstra_path_length(G, s, i) + G[i][j]['weight'] + nx.dijkstra_path_length(G, j, r) <= D[s]:
+                    relavence[i][j].add(s)
+    return relavence
+
+def relevance_matrix_with_wpll(G:nx.Graph, D, S2R):
+    import pll_weighted
+    n = G.number_of_nodes()
+    labels = pll_weighted.weighted_pll(G)
+    relevance = [[set() for _ in range(n)] for _ in range(n)]
+
+    for i, j in G.edges:
+        i, j = (j, i) if i > j else (i, j)
+        for s in S2R:
+            for r in S2R[s]:
+                if pll_weighted.query_distance(labels, s, i) + G[i][j]['weight'] + pll_weighted.query_distance(labels, j, r) <= D[s]:
+                    relevance[i][j].add(s)
+    return relevance
+
 def improved_relavence_matrix(G:nx.Graph, D, S2R):
     n = G.number_of_nodes()
     # initialize relavence matrix
@@ -198,6 +225,33 @@ def general_floyd(G:nx.Graph):
     #     A = np.minimum(A, A[i, :][np.newaxis, :] + A[:, i][:, np.newaxis])
     return A
 
+def general_floyd2(G:nx.Graph, weight="weight"):
+    from collections import defaultdict
+
+    # dictionary-of-dictionaries representation for dist and pred
+    # use some defaultdict magick here
+    # for dist the default is the floating point inf value
+    dist = defaultdict(lambda: defaultdict(lambda: float("inf")))
+    for u in G:
+        dist[u][u] = 0
+    # initialize path distance dictionary to be the adjacency matrix
+    # also set the distance to self to 0 (zero diagonal)
+    undirected = not G.is_directed()
+    for u, v, d in G.edges(data=True):
+        e_weight = d.get(weight, 1.0)
+        dist[u][v] = min(e_weight, dist[u][v])
+        if undirected:
+            dist[v][u] = min(e_weight, dist[v][u])
+    for w in G:
+        dist_w = dist[w]  # save recomputation
+        for u in G:
+            dist_u = dist[u]  # save recomputation
+            for v in G:
+                d = dist_u[w] + dist_w[v]
+                if dist_u[v] > d:
+                    dist_u[v] = d
+    return dict(dist)
+
 def random_D(S, w):
     D = {}
     for s in S:
@@ -205,4 +259,27 @@ def random_D(S, w):
     return D
 
 
+def test_relaven_run_time():
+    n, p, w = 200, 0.3, 100
+    G = random_graph.random_graph(n, p, w)
+    S2R = random_S2R(n, random_S(n, 0.1), 0.2)
+    D = random_D(S2R.keys(), w)
+
+    t1 = time.time()
+
+    relavence1 = relavence_matrix_without_distance(G, D, S2R)
+    t2 = time.time()
+    print("base: ", t2-t1)
+
+
+    relavence2 = relevance_matrix_with_wpll(G, D, S2R)
+    t3 = time.time()
+    print("method: ", t3-t2)
+
+
+    print(relavence1==relavence2)
+
+
+if __name__ == "__main__":
+    test_relaven_run_time()
 

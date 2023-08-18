@@ -8,7 +8,7 @@ inf = 1000000000
 
 
 def  weighted_pll(G:nx.Graph):
-    # G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
+    G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
     L = {v:dict() for v in G.nodes}
     for v in G.nodes:
         pruned_dijkstra(G, v, L)
@@ -95,21 +95,34 @@ def test_correctness():
     # random_graph.print_graph(G)
 
 def test_timecost():
-    G = random_graph.random_graph(500, 0.3, 100)
-    t1 = time.time()
-    labels1 = weighted_pll(G)
-    t2 = time.time()
-    labels2 = list(nx.all_pairs_dijkstra(G))
-    t3 = time.time()
-    labels3 = nx.floyd_warshall(G)
-    t4 = time.time()
-    # print(labels1)
-    # print(labels2)
-    # print(labels3)
+    test_n = [20, 50, 100, 200, 500, 1000]
+    test_p = [0.01, 0.05, 0.1, 0.3, 0.5]
+    file = open("result.txt", "w")
+ 
+    for n in test_n:
+        for p in test_p:
+            print(f"env: n={n}, p={p}")
 
-    print("weighted pll: ", t2 - t1)
-    print("all pairs dij: ", t3 - t2)
-    print("floyd warshall: ", t4 - t3)
+            G = random_graph.random_graph(n, p, 100)
+            t1 = time.time()
+            labels1 = weighted_pll(G)
+            t2 = time.time()
+            print("weighted pll: ", t2 - t1)
+
+            # labels2 = list(nx.all_pairs_dijkstra(G))
+            t3 = time.time()
+            # print("all pairs dij: ", t3 - t2)
+
+            import relavence_matrix
+            labels3 = nx.floyd_warshall(G)
+            # labels3 = relavence_matrix.general_floyd2(G)
+            t4 = time.time()
+            print("floyd warshall: ", t4 - t3)
+
+            file.write(f"{n} {p}\n")
+            file.write(f"{t2-t1} {t4-t3}\n")
+
+    file.close()
 
 def test_profile():
     G = random_graph.random_graph(1000, 0.3, 100)
@@ -122,5 +135,5 @@ def test_profile():
 
 
 # test_correctness()
-# test_timecost()
+test_timecost()
 # test_profile()
