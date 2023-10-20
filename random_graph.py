@@ -5,7 +5,7 @@ import numpy as np
 
 def random_graph(n, p, w):
     G = nx.Graph()  # 创建无向图
-    for u, v in nx.erdos_renyi_graph(n, p, seed=1).edges():
+    for u, v in nx.erdos_renyi_graph(n, p).edges():
         G.add_edge(u, v, weight=int(random.uniform(1, w)))
     return G
 

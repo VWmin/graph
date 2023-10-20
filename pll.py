@@ -1,11 +1,11 @@
 import networkx as nx
 import random_graph
 import time
-import line_profiler as lp
 
 inf = 1000000000
 
-def naive_landmark_labeling(G:nx.Graph):
+
+def naive_landmark_labeling(G: nx.Graph):
     """
     Naive landmark labeling algorithm
     :param G: networkx graph, undirected, unweighted
@@ -13,7 +13,8 @@ def naive_landmark_labeling(G:nx.Graph):
     """
     # initialize landmark label dictionary
     landmark_label = dict()
-    def bfs(G:nx.Graph, root):
+
+    def bfs(G: nx.Graph, root):
         distance = {}
 
         que = []
@@ -31,10 +32,11 @@ def naive_landmark_labeling(G:nx.Graph):
     # go through each vertices in G
     for v in G.nodes:
         landmark_label[v] = bfs(G, v)
-    
+
     return landmark_label
 
-def pruned_bfs(G:nx.Graph, vk, L, P, T):
+
+def pruned_bfs(G: nx.Graph, vk, L, P, T):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
     que = [vk]
     P[vk] = 0
@@ -47,7 +49,7 @@ def pruned_bfs(G:nx.Graph, vk, L, P, T):
             continue
         # Lk[u] <- Lk_1[u] U {vk: P[u]}
         L[u][vk] = P[u]
-        
+
         for w in G.neighbors(u):
             if P[w] == inf:
                 P[w] = P[u] + 1
@@ -56,13 +58,14 @@ def pruned_bfs(G:nx.Graph, vk, L, P, T):
         P[v] = inf
 
 
-def pruned_landmark_labeling(G:nx.Graph):
-    L = {v:dict() for v in G.nodes}
-    P = {v:inf for v in G.nodes}
+def pruned_landmark_labeling(G: nx.Graph):
+    L = {v: dict() for v in G.nodes}
+    P = {v: inf for v in G.nodes}
     for v in G.nodes:
-        T = {w:L[v][w] for w in L[v]}
+        T = {w: L[v][w] for w in L[v]}
         pruned_bfs(G, v, L, P, T)
     return L
+
 
 def pruned_query_distance(L, T, u):
     distance = inf
@@ -70,7 +73,7 @@ def pruned_query_distance(L, T, u):
         if w in T:
             distance = min(distance, L[u][w] + T[w])
     return distance
-        
+
 
 def query_distance(labels, u, v):
     if u not in labels or v not in labels:
@@ -80,6 +83,10 @@ def query_distance(labels, u, v):
     for landmark in k:
         distance = min(distance, labels[u][landmark] + labels[v][landmark])
     return distance
+
+
+def find_hub(labels, u, v):
+    return labels[u].keys() & labels[v].keys()
 
 
 def test_correctness():
@@ -109,6 +116,7 @@ def test_correctness():
     print("done")
     # random_graph.print_graph(G)
 
+
 def test_timecost():
     G = random_graph.random_graph(1000, 0.3, 100)
     t1 = time.time()
@@ -122,8 +130,10 @@ def test_timecost():
     print("pruned_landmark_labeling: ", t2 - t1)
     print("naive_landmark_labeling: ", t3 - t2)
 
+
 def test_profile():
     G = random_graph.random_graph(1000, 0.3, 100)
+    import line_profiler as lp
     profile = lp.LineProfiler(pruned_landmark_labeling)
     profile.add_function(pruned_query_distance)
     profile.add_function(pruned_bfs)
@@ -131,7 +141,6 @@ def test_profile():
     pruned_landmark_labeling(G)
     profile.disable()
     profile.print_stats()
-
 
 # test_correctness()
 # test_timecost()
