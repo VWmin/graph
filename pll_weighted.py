@@ -1,22 +1,22 @@
 import networkx as nx
 import random_graph
 import time
-import line_profiler as lp
 from queue import PriorityQueue as PQ
 
 inf = 1000000000
 
 
-def  weighted_pll(G:nx.Graph):
+def weighted_pll(G: nx.Graph):
     G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
-    L = {v:dict() for v in G.nodes}
+    L = {v: dict() for v in G.nodes}
     for v in G.nodes:
         pruned_dijkstra(G, v, L)
     return L
 
-def pruned_dijkstra(G:nx.Graph, vk, L):
-    visited = {v:False for v in G.nodes}
-    D = {v:inf for v in G.nodes}
+
+def pruned_dijkstra(G: nx.Graph, vk, L):
+    visited = {v: False for v in G.nodes}
+    D = {v: inf for v in G.nodes}
     D[vk] = 0
     pq = PQ()
     pq.put((D[vk], vk))
@@ -34,7 +34,7 @@ def pruned_dijkstra(G:nx.Graph, vk, L):
                 pq.put((D[w], w))
 
 
-def dijkstra(G:nx.Graph, s):
+def dijkstra(G: nx.Graph, s):
     visited = [False for _ in range(len(G.nodes))]
     d = [inf for _ in range(len(G.nodes))]
     d[s] = 0
@@ -52,6 +52,7 @@ def dijkstra(G:nx.Graph, s):
                 pq.put((d[v], v))
     return d
 
+
 def query_distance(labels, u, v):
     if u not in labels or v not in labels:
         return inf
@@ -60,6 +61,10 @@ def query_distance(labels, u, v):
     for landmark in k:
         distance = min(distance, labels[u][landmark] + labels[v][landmark])
     return distance
+
+
+def find_hub(labels, u, v):
+    return labels[u].keys() & labels[v].keys()
 
 
 def test_correctness():
@@ -82,7 +87,7 @@ def test_correctness():
 
     d = nx.floyd_warshall(G)
     t5 = time.time()
-    print("cost3: ", t5-t4)
+    print("cost3: ", t5 - t4)
 
     for v in G.nodes:
         for u in G.nodes:
@@ -94,11 +99,12 @@ def test_correctness():
     print("ok.")
     # random_graph.print_graph(G)
 
+
 def test_timecost():
     test_n = [20, 50, 100, 200, 500, 1000]
     test_p = [0.01, 0.05, 0.1, 0.3, 0.5]
     file = open("result.txt", "w")
- 
+
     for n in test_n:
         for p in test_p:
             print(f"env: n={n}, p={p}")
@@ -120,11 +126,13 @@ def test_timecost():
             print("floyd warshall: ", t4 - t3)
 
             file.write(f"{n} {p}\n")
-            file.write(f"{t2-t1} {t4-t3}\n")
+            file.write(f"{t2 - t1} {t4 - t3}\n")
 
     file.close()
 
+
 def test_profile():
+    import line_profiler as lp
     G = random_graph.random_graph(1000, 0.3, 100)
     profile = lp.LineProfiler(weighted_pll)
     profile.add_function(pruned_dijkstra)
@@ -132,7 +140,6 @@ def test_profile():
     weighted_pll(G)
     profile.disable()
     profile.print_stats()
-
 
 # test_correctness()
 # test_timecost()
