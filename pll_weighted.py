@@ -2,12 +2,11 @@ import networkx as nx
 import random_graph
 import time
 from queue import PriorityQueue as PQ
-
-inf = 1000000000
+from math import inf
 
 
 def weighted_pll(G: nx.Graph):
-    G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
+    # G = nx.convert_node_labels_to_integers(G, ordering="decreasing degree")
     L = {v: dict() for v in G.nodes}
     for v in G.nodes:
         pruned_dijkstra(G, v, L)

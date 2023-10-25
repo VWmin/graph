@@ -42,12 +42,10 @@ def affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
 
 def alternative_affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
     d = nx.shortest_path_length
-    A = set()
-    mark = {}
+    A, mark = set(), {}
     for v in Gi.nodes:
         mark[v] = False
-    que = [x]
-    mark[x] = True
+    que, mark[x] = [x], True
     while len(que):
         v = que[0]
         que.pop(0)
@@ -154,12 +152,13 @@ def test_remove_edge():
     L_new = pll_weighted.weighted_pll(G)
     print("final  L: ", L_new)
 
-    from pll import query_distance as d
+    from pll_weighted import query_distance as d
     for u in G.nodes:
         for v in G.nodes:
             if d(L3, u, v) != d(L_new, u, v):
                 print(u, v, d(L3, u, v), d(L_new, u, v))
-    random_graph.print_graph(G, False)
+    random_graph.print_graph(G)
+    random_graph.print_graph(G_old)
 
 
 def test_remove_random_edge():
