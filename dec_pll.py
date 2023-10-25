@@ -12,9 +12,8 @@ def affected(G: nx.Graph, G_old, L, x, y):
     mark = {}
     for v in G.nodes:
         mark[v] = False
-    que = []
+    que = [x]
     mark[x] = True
-    que.append(x)
     while len(que):
         v = que[0]
         que.pop(0)
@@ -35,9 +34,8 @@ def alternative_affected(G: nx.Graph, L, x, y):
     mark = {}
     for v in G.nodes:
         mark[v] = False
-    que = []
+    que = [x]
     mark[x] = True
-    que.append(x)
     while len(que):
         v = que[0]
         que.pop(0)
@@ -77,7 +75,7 @@ def greedy_restore(G: nx.Graph, L, AX, AY):
         mark, dist = {}, {}
         for v in G.nodes:
             mark[v], dist[v] = False, inf
-        que = []
+        que = [a]
         mark[a], dist[a] = True, 0
         while len(que):
             v = que[0]
@@ -105,10 +103,9 @@ def order_restore(G: nx.Graph, L, AX, AY):
         for v in G.nodes:
             mark[v] = False
             dist[v] = inf
-        que = []
+        que = [a]
         mark[a] = True
         dist[a] = 0
-        que.append(a)
         while len(que):
             v = que[0]
             que.pop(0)
@@ -131,13 +128,14 @@ def test_remove_edge():
     print("origin L: ", L)
     G_old = copy.deepcopy(G)
     G.remove_edge(2, 4)
-    AX = affected(G, G_old, L, 2, 4)
-    AY = affected(G, G_old, L, 4, 2)
+    # AX, AY = affected(G, G_old, L, 2, 4), affected(G, G_old, L, 4, 2)
+    AX, AY = alternative_affected(G, L, 2, 4), alternative_affected(G, L, 4, 2)
     print("affected X: ", AX)
     print("affected Y: ", AY)
     L2 = remove_affected_labels(L, AX, AY)
     print("remove L: ", L2)
-    L3 = order_restore(G, L2, AX, AY)
+    # L3 = order_restore(G, L2, AX, AY)
+    L3 = greedy_restore(G, L2, AX, AY)
     print("restoreL: ", L3)
     L_new = pll.pruned_landmark_labeling(G)
     print("final  L: ", L_new)
