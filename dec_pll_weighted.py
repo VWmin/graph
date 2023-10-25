@@ -106,30 +106,27 @@ def greedy_restore(G: nx.Graph, L, AX, AY):
 
 
 def order_restore(G: nx.Graph, L, AX, AY):
-    from pll import query_distance as d
+    from pll_weighted import query_distance as d
     F = list(AX | AY)
     F.sort()
     for a in F:
-        mark = {}
-        dist = {}
+        mark, dist = {}, {}
         for v in G.nodes:
-            mark[v] = False
-            dist[v] = inf
+            mark[v], dist[v] = False, inf
         que = PriorityQueue()
         que.push((0, a))
-        mark[a] = True
-        dist[a] = 0
+        mark[a], dist[a] = True, 0
         while que.size():
-            w, v = que.pop()
-            if v < a:
+            _, v = que.pop()
+            if v < a or mark[v]:
                 continue
+            mark[v] = True
             if (a in AX and v in AY) or (a in AY and v in AX):
                 if dist[v] < d(L, a, v):
                     L[v][a] = dist[v]
             for u in G.neighbors(v):
-                if not mark[u]:
-                    dist[u] = dist[v] + d(G, u, v)
-                    mark[u] = True
+                if dist[u] > dist[v] + G[u][v]['weight']:
+                    dist[u] = dist[v] + G[u][v]['weight']
                     que.push((dist[u], u))
     return L
 
@@ -146,8 +143,8 @@ def test_remove_edge():
     print("affected Y: ", AY)
     L2 = remove_affected_labels(L, AX, AY)
     print("remove L: ", L2)
-    # L3 = order_restore(G, L2, AX, AY)
-    L3 = greedy_restore(G, L2, AX, AY)
+    L3 = order_restore(G, L2, AX, AY)
+    # L3 = greedy_restore(G, L2, AX, AY)
     print("restoreL: ", L3)
     L_new = pll_weighted.weighted_pll(G)
     print("final  L: ", L_new)
