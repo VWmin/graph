@@ -14,12 +14,8 @@ def naive_landmark_labeling(G: nx.Graph):
     # initialize landmark label dictionary
     landmark_label = dict()
 
-    def bfs(G: nx.Graph, root):
-        distance = {}
-
-        que = []
-        que.append(root)
-        distance[root] = 0
+    def bfs(root):
+        distance, que = {root: 0}, [root]
         while que:
             u = que.pop(0)
             for v in G.neighbors(u):
@@ -29,9 +25,9 @@ def naive_landmark_labeling(G: nx.Graph):
 
         return distance
 
-    # go through each vertices in G
-    for v in G.nodes:
-        landmark_label[v] = bfs(G, v)
+    # go through vertices in G
+    for node in G.nodes:
+        landmark_label[node] = bfs(node)
 
     return landmark_label
 
