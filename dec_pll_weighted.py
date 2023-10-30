@@ -20,7 +20,8 @@ class PriorityQueue:
 
 
 def affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
-    d = nx.shortest_path_length
+    # d = nx.dijkstra_path_length
+    d = pll_weighted.query_distance
     A, mark = set(), {}
     for v in Gi.nodes:
         mark[v] = False
@@ -33,7 +34,7 @@ def affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
             if not mark[u]:
                 H = pll_weighted.find_hub(L, u, y)
                 for h in H:
-                    if (h in A) or ((h == u or h == y) and (d(Gi_1, u, y) == d(Gi_1, u, x) + Gi_1[u][v]['weight'])):
+                    if (h in A) or ((h == u or h == y) and (d(L, u, y) == d(L, u, x) + Gi_1[x][y]['weight'])):
                         mark[u] = True
                         que.append(u)
                         break
@@ -41,7 +42,7 @@ def affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
 
 
 def alternative_affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
-    d = nx.shortest_path_length
+    d = nx.dijkstra_path_length
     A, mark = set(), {}
     for v in Gi.nodes:
         mark[v] = False
@@ -57,7 +58,7 @@ def alternative_affected(Gi: nx.Graph, Gi_1: nx.Graph, L, x, y):
                     que.append(u)
                 else:
                     h = min(list(pll_weighted.find_hub(L, u, y)))
-                    if h in A or ((h == u or h == y) and d(Gi_1, u, y) == d(Gi_1, u, x) + Gi_1[u][v]['weight']):
+                    if h in A or ((h == u or h == y) and d(Gi_1, u, y) == d(Gi_1, u, x) + Gi_1[x][y]['weight']):
                         mark[u] = True
                         que.append(u)
     return A
@@ -137,8 +138,8 @@ def test_remove_edge():
     print("origin L: ", L)
     G_old = copy.deepcopy(G)
     G.remove_edge(2, 4)
-    # AX, AY = affected(G, G_old, L, 2, 4), affected(G, G_old, L, 4, 2)
-    AX, AY = alternative_affected(G, G_old, L, 2, 4), alternative_affected(G, G_old, L, 4, 2)
+    AX, AY = affected(G, G_old, L, 2, 4), affected(G, G_old, L, 4, 2)
+    # AX, AY = alternative_affected(G, G_old, L, 2, 4), alternative_affected(G, G_old, L, 4, 2)
     print("affected X: ", AX)
     print("affected Y: ", AY)
     L2 = remove_affected_labels(L, AX, AY)
