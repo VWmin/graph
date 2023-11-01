@@ -1,8 +1,9 @@
+import copy
 import networkx as nx
 import random_graph
 import time
+from math import inf
 
-inf = 1000000000
 
 
 def naive_landmark_labeling(G: nx.Graph):
@@ -12,25 +13,50 @@ def naive_landmark_labeling(G: nx.Graph):
     :return: landmark label dictionary
     """
     # initialize landmark label dictionary
-    landmark_label = dict()
+    landmark_label = {node:dict() for node in G.nodes}
+    print(landmark_label)
 
     def bfs(root):
         distance, que = {root: 0}, [root]
         while que:
             u = que.pop(0)
+            landmark_label[u][root] = distance[u]
             for v in G.neighbors(u):
                 if v not in distance:
                     distance[v] = distance[u] + 1
                     que.append(v)
 
-        return distance
-
     # go through vertices in G
     for node in G.nodes:
-        landmark_label[node] = bfs(node)
+        bfs(node)
+        print(landmark_label)
 
     return landmark_label
 
+
+
+
+def process(G):
+    L = {v : dict() for v in G.nodes}
+    print(L)
+
+    def pbfs(root):
+        que, dist = [root], {v:inf for v in G.nodes}
+        dist[root] = 0
+        while que:
+            v = que.pop(0)
+            if query_distance(L, root, v) <= dist[v]:
+                continue
+            L[v][root] = dist[v]
+            for u in G.neighbors(v):
+                if dist[u] == inf:
+                    dist[u] = dist[v] + 1
+                    que.append(u)
+
+    for node in G.nodes:
+        pbfs(node)
+        print(L)
+    return L
 
 def pruned_bfs(G: nx.Graph, vk, L, P, T):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
@@ -57,9 +83,12 @@ def pruned_bfs(G: nx.Graph, vk, L, P, T):
 def pruned_landmark_labeling(G: nx.Graph):
     L = {v: dict() for v in G.nodes}
     P = {v: inf for v in G.nodes}
+    # print(L)
     for v in G.nodes:
         T = {w: L[v][w] for w in L[v]}
+        print(P)
         pruned_bfs(G, v, L, P, T)
+        # print(L)
     return L
 
 
@@ -138,6 +167,9 @@ def test_profile():
     profile.disable()
     profile.print_stats()
 
-# test_correctness()
-# test_timecost()
-# test_profile()
+if __name__ == '__main__':
+    G = random_graph.demo_graph()
+    # L = pruned_landmark_labeling(G)
+    # L = naive_landmark_labeling(G)
+    L = process(G)
+
