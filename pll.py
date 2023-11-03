@@ -5,7 +5,6 @@ import time
 from math import inf
 
 
-
 def naive_landmark_labeling(G: nx.Graph):
     """
     Naive landmark labeling algorithm
@@ -13,7 +12,7 @@ def naive_landmark_labeling(G: nx.Graph):
     :return: landmark label dictionary
     """
     # initialize landmark label dictionary
-    landmark_label = {node:dict() for node in G.nodes}
+    landmark_label = {node: dict() for node in G.nodes}
     print(landmark_label)
 
     def bfs(root):
@@ -34,14 +33,12 @@ def naive_landmark_labeling(G: nx.Graph):
     return landmark_label
 
 
-
-
 def process(G):
-    L = {v : dict() for v in G.nodes}
+    L = {v: dict() for v in G.nodes}
     print(L)
 
     def pbfs(root):
-        que, dist = [root], {v:inf for v in G.nodes}
+        que, dist = [root], {v: inf for v in G.nodes}
         dist[root] = 0
         while que:
             v = que.pop(0)
@@ -57,6 +54,7 @@ def process(G):
         pbfs(node)
         print(L)
     return L
+
 
 def pruned_bfs(G: nx.Graph, vk, L, P, T):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
@@ -114,6 +112,55 @@ def find_hub(labels, u, v):
     return labels[u].keys() & labels[v].keys()
 
 
+def bit_pll(G: nx.Graph):
+    L = {node: {} for node in G.nodes}
+
+    def bit_bfs(r, sr):
+        dist, sr1, sr0 = {}, {}, {}
+        for v in G.nodes:
+            dist[v], sr1[v], sr0[v] = inf, set(), set()
+        dist[r], sr1[r], sr0[r] = 0, set(), set()
+        for v in sr:
+            dist[v], sr1[v] = 1, {v}
+        q0, q1 = [r], [v for v in sr]
+        while q0:
+            e0, e1 = set(), set()
+            while q0:
+                v = q0.pop(0)
+                for u in G.neighbors(v):
+                    if dist[u] == inf or dist[u] == dist[v] + 1:
+                        e1.add((v, u))
+                        if dist[u] == inf:
+                            dist[u] = dist[v] + 1
+                            q1.append(u)
+                    elif dist[u] == dist[v]:
+                        e0.add((v, u))
+            for (v, u) in e0:
+                sr0[u] = set.union(sr0[u], sr1[v])
+            for (v, u) in e1:
+                sr1[u] = set.union(sr1[u], sr1[v])
+                sr0[u] = set.union(sr0[u], sr0[v])
+            q0 = q1
+            q1 = []
+        for v in G.nodes:
+            if dist[v] == inf:
+                continue
+            L[v][r] = (dist[v], sr1[v], sr0[v])
+
+    for node in G.nodes:
+        bit_bfs(node, G.neighbors(node))
+    return L
+
+
+def bit_distance_query(G, L, s, t):
+    R = L[s].keys() & L[t].keys()
+    U = R
+    for r in R:
+        U = U | G.neighbors(r)
+
+    print(L)
+
+
 def test_correctness():
     G = random_graph.random_graph(1000, 0.3, 100)
     # G = random_graph.demo_graph()
@@ -167,9 +214,13 @@ def test_profile():
     profile.disable()
     profile.print_stats()
 
-if __name__ == '__main__':
-    G = random_graph.demo_graph()
-    # L = pruned_landmark_labeling(G)
-    # L = naive_landmark_labeling(G)
-    L = process(G)
 
+def test_bit_pll():
+    G = random_graph.demo_graph()
+    L = bit_pll(G)
+    # bit_distance_query(L, 4, 2)
+
+
+
+if __name__ == '__main__':
+    test_bit_pll()
