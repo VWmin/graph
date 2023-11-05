@@ -38,7 +38,7 @@ def naive_landmark_labeling(G: nx.Graph):
 
 def process(G):
     L = {v : dict() for v in G.nodes}
-    print(L)
+    # print(L)
 
     def pbfs(root):
         que, dist = [root], {v:inf for v in G.nodes}
@@ -55,7 +55,7 @@ def process(G):
 
     for node in G.nodes:
         pbfs(node)
-        print(L)
+        # print(L)
     return L
 
 def pruned_bfs(G: nx.Graph, vk, L, P, T):
