@@ -53,10 +53,12 @@ def remove_affected_labels(L, AX, AY):
         for u in AY:
             if u in L[v].keys():
                 del L[v][u]
-    for v in AY:
-        for u in AX:
-            if u in L[v].keys():
-                del L[v][u]
+            if v in L[u].keys():
+                del L[u][v]
+    # for v in AY:
+    #     for u in AX:
+    #         if u in L[v].keys():
+    #             del L[v][u]
     return L
 
 
