@@ -50,12 +50,16 @@ def prefixal_query(labels, u, v, k):
 
 def test_inc_pll():
     G = random_graph.demo_graph()
+    # random_graph.print_graph(G, show_weight=False)
     G_raw = copy.deepcopy(G)
     L_raw = pll.process(G)
     print("L raw: ", L_raw)
+    # printL(L_raw)
+    # printQuery(L_raw, 6, 7)
     G.add_edge(0, 4, weight=20)
     L_new = inc_pll(G, L_raw, 0, 4)
     print("L new: ", L_new)
+    # printL(L_new)
     L = pll.process(G)
     print("L    : ", L)
     for u in G.nodes:
@@ -66,6 +70,22 @@ def test_inc_pll():
             if got != excepted:
                 print("disagree in %d-%d, excepted %d, got %d" % (u, v, excepted, got))
     random_graph.print_graph(G)
+
+
+def printL(L):
+    for v in L:
+        print("L(%d) = {" % v, end="")
+        for u in L[v]:
+            print("(%d, %d), " % (u, L[v][u]), end="")
+        print("}")
+
+
+def printQuery(L, a, b):
+    V = L[a].keys() & L[b].keys()
+    print("d(%d, %d) = min{" % (a, b), end="")
+    for v in V:
+        print("(%d+%d), " % (L[a][v], L[b][v]), end="")
+    print("}")
 
 
 if __name__ == '__main__':

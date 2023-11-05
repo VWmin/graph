@@ -5,7 +5,6 @@ import time
 from math import inf
 
 
-
 def naive_landmark_labeling(G: nx.Graph):
     """
     Naive landmark labeling algorithm
@@ -13,8 +12,7 @@ def naive_landmark_labeling(G: nx.Graph):
     :return: landmark label dictionary
     """
     # initialize landmark label dictionary
-    landmark_label = {node:dict() for node in G.nodes}
-    print(landmark_label)
+    landmark_label = {node: dict() for node in G.nodes}
 
     def bfs(root):
         distance, que = {root: 0}, [root]
@@ -29,19 +27,17 @@ def naive_landmark_labeling(G: nx.Graph):
     # go through vertices in G
     for node in G.nodes:
         bfs(node)
-        print(landmark_label)
 
     return landmark_label
 
 
-
-
 def process(G):
-    L = {v : dict() for v in G.nodes}
+    L = {v: dict() for v in G.nodes}
+
     # print(L)
 
     def pbfs(root):
-        que, dist = [root], {v:inf for v in G.nodes}
+        que, dist = [root], {v: inf for v in G.nodes}
         dist[root] = 0
         while que:
             v = que.pop(0)
@@ -57,6 +53,7 @@ def process(G):
         pbfs(node)
         # print(L)
     return L
+
 
 def pruned_bfs(G: nx.Graph, vk, L, P, T):
     # L: {u:{v1:d1, v2, d2, ...}, u2:{...}, ...}
@@ -167,9 +164,9 @@ def test_profile():
     profile.disable()
     profile.print_stats()
 
+
 if __name__ == '__main__':
     G = random_graph.demo_graph()
     # L = pruned_landmark_labeling(G)
     # L = naive_landmark_labeling(G)
     L = process(G)
-
