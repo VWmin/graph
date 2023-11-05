@@ -6,23 +6,20 @@ import networkx as nx
 from math import inf
 
 
-def affected(G: nx.Graph, G_old, L, x, y):
-    d = nx.shortest_path_length
-    A = set()
-    mark = {}
+def affected(G: nx.Graph, L, x, y):
+    d = pll.query_distance
+    A, mark = set(), {}
     for v in G.nodes:
         mark[v] = False
-    que = [x]
-    mark[x] = True
+    que, mark[x] = [x], True
     while len(que):
-        v = que[0]
-        que.pop(0)
+        v = que.pop(0)
         A.add(v)
         for u in G.neighbors(v):
             if not mark[u]:
                 H = pll.find_hub(L, u, y)
                 for h in H:
-                    if (h in A) or ((h == u or h == y) and (d(G_old, u, y) == d(G_old, u, x) + 1)):
+                    if (h in A) or ((h == u or h == y) and (d(L, u, y) == d(L, u, x) + 1)):
                         mark[u] = True
                         que.append(u)
                         break
@@ -30,15 +27,12 @@ def affected(G: nx.Graph, G_old, L, x, y):
 
 
 def alternative_affected(G: nx.Graph, L, x, y):
-    A = set()
-    mark = {}
+    A, mark = set(), {}
     for v in G.nodes:
         mark[v] = False
-    que = [x]
-    mark[x] = True
+    que, mark[x] = [x], True
     while len(que):
-        v = que[0]
-        que.pop(0)
+        v = que.pop(0)
         A.add(v)
         for u in G.neighbors(v):
             if not mark[u]:
@@ -75,11 +69,9 @@ def greedy_restore(G: nx.Graph, L, AX, AY):
         mark, dist = {}, {}
         for v in G.nodes:
             mark[v], dist[v] = False, inf
-        que = [a]
-        mark[a], dist[a] = True, 0
+        que, mark[a], dist[a] = [a], True, 0
         while len(que):
-            v = que[0]
-            que.pop(0)
+            v = que.pop(0)
             if v in LA:
                 if dist[v] < query(L, a, v):
                     if v < a:
@@ -98,17 +90,12 @@ def order_restore(G: nx.Graph, L, AX, AY):
     F = list(AX | AY)
     F.sort()
     for a in F:
-        mark = {}
-        dist = {}
+        mark, dist = {}, {}
         for v in G.nodes:
-            mark[v] = False
-            dist[v] = inf
-        que = [a]
-        mark[a] = True
-        dist[a] = 0
+            mark[v], dist[v] = False, inf
+        que, mark[a], dist[a] = [a], True, 0
         while len(que):
-            v = que[0]
-            que.pop(0)
+            v = que.pop(0)
             if v < a:
                 continue
             if (a in AX and v in AY) or (a in AY and v in AX):
@@ -116,8 +103,7 @@ def order_restore(G: nx.Graph, L, AX, AY):
                     L[v][a] = dist[v]
             for u in G.neighbors(v):
                 if not mark[u]:
-                    dist[u] = dist[v] + 1
-                    mark[u] = True
+                    dist[u], mark[u] = dist[v] + 1, True
                     que.append(u)
     return L
 
@@ -128,8 +114,8 @@ def test_remove_edge():
     print("origin L: ", L)
     G_old = copy.deepcopy(G)
     G.remove_edge(2, 4)
-    # AX, AY = affected(G, G_old, L, 2, 4), affected(G, G_old, L, 4, 2)
-    AX, AY = alternative_affected(G, L, 2, 4), alternative_affected(G, L, 4, 2)
+    AX, AY = affected(G, L, 2, 4), affected(G, L, 4, 2)
+    # AX, AY = alternative_affected(G, L, 2, 4), alternative_affected(G, L, 4, 2)
     print("affected X: ", AX)
     print("affected Y: ", AY)
     L2 = remove_affected_labels(L, AX, AY)

@@ -86,7 +86,7 @@ def pruned_landmark_labeling(G: nx.Graph):
     # print(L)
     for v in G.nodes:
         T = {w: L[v][w] for w in L[v]}
-        print(P)
+        # print(P)
         pruned_bfs(G, v, L, P, T)
         # print(L)
     return L
