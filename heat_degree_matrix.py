@@ -4,8 +4,7 @@ import time
 import pll_weighted
 import random_graph
 import relavence_matrix
-
-inf = 1000000000
+from math import inf
 
 
 class HeatDegreeModel:
@@ -14,51 +13,77 @@ class HeatDegreeModel:
         self.delay_limit = delay_limit
         self.bandwidth_require = bandwidth_require
         self.src2recv = src2recv
+        self.use_pll = True
+        self.routing_trees = {}
+        self.__labels__ = 0
+        self.__distance__ = 0
         self.__build_relevance__()
         self.__build_heat_matrix__()
         self.__routing__()
 
     def __build_relevance__(self):
         n = self.g.number_of_nodes()
-        labels = pll_weighted.weighted_pll(self.g)
-        sp = pll_weighted.query_distance
         self.relevance = [[set() for _ in range(n)] for _ in range(n)]
 
         for i, j in self.g.edges:
             i, j = (j, i) if i > j else (i, j)
             for s in self.src2recv:
                 for r in self.src2recv[s]:
-                    if sp(labels, s, i) + self.g[i][j]['weight'] + sp(
-                            labels, j, r) <= self.delay_limit[s]:
+                    if self.query(s, i) + self.g[i][j]['weight'] + self.query(j, r) <= self.delay_limit[s]:
                         self.relevance[i][j].add(s)
 
     def __build_heat_matrix__(self):
         max_delay = self.get_max_delay()
         n = self.g.number_of_nodes()
 
-        def heat_degree_matrix_ij(i, j):
+        def heat_degree_matrix_ij(s, i, j):
             # 如果边ij是s的候选边，且已在以s为源的现存多播树中
             # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
-            if self.relevance[i][j]:
-                _sum, ok = self.check_bandwidth_limit(i, j)
-                if ok:
+            if s in self.relevance[i][j]:
+                ok1 = self.__is_routing_contains_edge__(s, i, j)
+                _sum, ok2 = self.check_bandwidth_limit(i, j)
+                if ok1 or ok2:
                     return self.g[i][j]['weight'] / (n * max_delay)
                 else:
                     return pow(_sum / self.g[i][j]['bandwidth'], 2)
             else:
                 return inf
 
-        self.heat = [[heat_degree_matrix_ij(i, j) for j in range(n)] for i in range(n)]
-        for u, v in self.g.edges:
-            self.g[u][v]['heat'] = self.heat[u][v]
+        self.heat = {}
+        for src in self.src2recv:
+            self.heat[src] = [[heat_degree_matrix_ij(src, i, j) for j in range(n)] for i in range(n)]
 
     def __routing__(self):
-        self.T = {}
         for s in self.src2recv:
-            self.T[s] = {}
+            self.routing_trees[s] = {}
             for r in self.src2recv[s]:
-                _, path = nx.single_source_dijkstra(self.g, s, target=r, weight='heat')
-                self.T[s][r] = path
+                _, path = nx.single_source_dijkstra(self.g, s, target=r, weight=lambda u, v, d: self.heat[s][u][v])
+                self.routing_trees[s][r] = path
+
+    def __pll_query__(self, u, v):
+        if self.__labels__ == 0:
+            self.__labels__ = pll_weighted.weighted_pll(self.g)
+        return pll_weighted.query_distance(self.__labels__, u, v)
+
+    def __distance_query(self, u, v):
+        if self.__distance__ == 0:
+            self.__distance__ = nx.floyd_warshall_numpy(self.g)
+        return self.__distance__[u][v]
+
+    def __is_routing_contains_edge__(self, s, u, v) -> bool:
+        if s not in self.routing_trees:
+            return False
+        for i in range(1, len(self.routing_trees[s])):
+            a, b = self.routing_trees[s][i-1], self.routing_trees[s][i]
+            if (a, b) == (u, v) or (b, a) == (u, v):
+                return True
+        return False
+
+    def query(self, u, v):
+        if self.use_pll:
+            return self.__pll_query__(u, v)
+        else:
+            return self.__distance_query(u, v)
 
     def check_bandwidth_limit(self, u, v):
         u, v = (v, u) if u > v else (u, v)
@@ -70,85 +95,20 @@ class HeatDegreeModel:
     def get_max_delay(self):
         return max(dict(self.g.edges).items(), key=lambda x: x[1]['weight'])
 
+    def add_recv(self, s, r):
+        self.src2recv[s].append(r)
+        updated = set()
+        for u, v in self.g.edges:
+            u, v = (v, u) if u > v else (u, v)
+            if (self.query(s, u)+self.g[u][v]['weight']+self.query(v, r)) <= self.delay_limit[s]:
+                self.relevance[u][v].add(s)
+                updated.add((u, v))
+        for s in self.src2recv:
+            for u, v in updated:
+                if s in self.relevance[u][v]:
+                    _sum, ok = self.check_bandwidth_limit(u, v)
+                    # if ok:
 
-def relevance_matrix_with_wpll(G: nx.Graph, D, S2R):
-    n = G.number_of_nodes()
-    labels = pll_weighted.weighted_pll(G)
-    query = pll_weighted.query_distance
-    relevance = [[set() for _ in range(n)] for _ in range(n)]
-
-    for i, j in G.edges:
-        i, j = (j, i) if i > j else (i, j)
-        for s in S2R:
-            for r in S2R[s]:
-                if query(labels, s, i) + G[i][j]['weight'] + query(labels, j, r) <= D[s]:
-                    relevance[i][j].add(s)
-    return relevance
-
-
-def heat_degree_matrix(relavence, G: nx.Graph, S, D, B):
-    max_ld = 0
-    V = G.number_of_nodes()
-    for _, _, w in G.edges.data('weight'):
-        max_ld = max(max_ld, w)
-
-    def checkB(u, v):
-        # 检查边uv的带宽是否满足所有以其为候选边的源的带宽要求之和
-        u, v = (v, u) if u > v else (u, v)
-        sum = 0
-        for s in relavence[u][v]:
-            sum += B[s]
-        return (sum, sum <= G[u][v]['bandwidth'])
-
-    def heat_degree_matrix_ij(i, j):
-        # 如果边ij是s的候选边，且已在以s为源的现存多播树中
-        # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
-        if relavence[i][j]:
-            sum, satisify = checkB(i, j)
-            if satisify:
-                return G[i][j]['weight'] / (V * max_ld)
-            else:
-                return pow(sum / G[i][j]['bandwidth'], 2)
-        else:
-            return inf
-
-    heat = [[heat_degree_matrix_ij(i, j) for j in range(V)] for i in range(V)]
-    return heat
-
-
-def heat_matrix_based_routing(heat, G: nx.Graph, S2R):
-    for u, v in G.edges:
-        G[u][v]['heat'] = heat[u][v]
-    for s in S2R:
-        Ts = {s}
-        for r in S2R[s]:
-            cost, path = nx.multi_source_dijkstra(G, Ts, target=r, weight='heat')
-            for i in path: Ts.add(i)
-            print(f"heat_matrix_based_routing: {s} -> {r}: {path}")
-
-
-def test_relevance_run_time():
-    n = 500
-    p_edge = 0.1
-    w_range = 100
-    p_s = 0.1
-    p_r = 0.1
-
-    G = random_graph.random_graph(n, p_edge, w_range)
-    S = relavence_matrix.random_S(n, p_s)
-    S2R = relavence_matrix.random_S2R(n, S, p_r)
-    D = relavence_matrix.random_D(S, w_range)
-
-    t1 = time.time()
-
-    relevance_matrix_with_wpll(G, D, S2R)
-    t2 = time.time()
-    print(f"relevance_matrix_with_wpll: {t2 - t1}")
-
-    distance = relavence_matrix.general_floyd(G)
-    relavence_matrix.relavence_matrix(G, distance, D, S2R)
-    t3 = time.time()
-    print(f"relavence_matrix: {t3 - t2}")
 
 
 def test_heat_matrix_based_routing():
@@ -166,14 +126,7 @@ def test_heat_matrix_based_routing():
     D = relavence_matrix.random_D(S, weight_range)  # Delay limit of each source
     B = relavence_matrix.random_B(S, bandwidth_range, .2, .5)  # Bandwidth requirement of each source
 
-    t1 = time.time()
-    # distance = relavence_matrix.general_floyd(G)
-    distance = nx.floyd_warshall_numpy(G)
-    relevance = relavence_matrix.relavence_matrix(G, distance, D, S2R)
-    heat = heat_degree_matrix(relevance, G, S, D, B)
-    heat_matrix_based_routing(heat, G, S2R)
-    t2 = time.time()
-    print(f"heat_matrix_based_routing: {t2 - t1}s")
+    model = HeatDegreeModel(G, D, B, S2R)
 
 
 def test_member_change():
@@ -191,8 +144,7 @@ def test_member_change():
     B = relavence_matrix.random_B(S, bandwidth_range, .4, .4)  # Bandwidth requirement of each source
 
     distance = nx.floyd_warshall_numpy(G)
-    relevance = relavence_matrix.relavence_matrix(G, distance, D, S2R)
-    heat1 = heat_degree_matrix(relevance, G, S, D, B)
+    model = HeatDegreeModel(G, D, B, S2R)
 
     import random
     # add = random.randint(0, 1)
@@ -204,17 +156,18 @@ def test_member_change():
         while r in S2R[S[0]] or r == S[0]:
             r = random.randint(0, number_of_nodes - 1)
         S2R[S[0]] = S2R.get(S[0], []) + [r]
+        model.add_recv(S[0], r)
 
-        relevance3 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
-        heat3 = heat_degree_matrix(relevance3, G, S, D, B)
-
-    print(f"S: {S[0]}\tR: {S2R[S[0]]}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
-
-    for i in range(len(heat1)):
-        for j in range(len(heat1[i])):
-            if heat1[i][j] == inf: continue
-            print(
-                f"heat1[{i}][{j}]: {heat1[i][j]}\theat3[{i}][{j}]: {heat3[i][j]}\tdiff: {heat1[i][j] != heat3[i][j]}\n")
+    #     relevance3 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
+    #     heat3 = heat_degree_matrix(relevance3, G, S, D, B)
+    #
+    # print(f"S: {S[0]}\tR: {S2R[S[0]]}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
+    #
+    # for i in range(len(heat1)):
+    #     for j in range(len(heat1[i])):
+    #         if heat1[i][j] == inf: continue
+    #         print(
+    #             f"heat1[{i}][{j}]: {heat1[i][j]}\theat3[{i}][{j}]: {heat3[i][j]}\tdiff: {heat1[i][j] != heat3[i][j]}\n")
 
 
 def test_model():
@@ -233,6 +186,8 @@ def test_model():
     B = relavence_matrix.random_B(S, bandwidth_range, .2, .5)  # Bandwidth requirement of each source
 
     model = HeatDegreeModel(G, D, B, S2R)
+    print(model.routing_trees)
+    # print(model.heat)
 
 
 if __name__ == '__main__':
