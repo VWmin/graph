@@ -4,9 +4,16 @@ import random
 import numpy as np
 
 def random_graph(n, p, w):
+    G0 = nx.erdos_renyi_graph(n, p)
     G = nx.Graph()  # 创建无向图
-    for u, v in nx.erdos_renyi_graph(n, p).edges():
+    for u, v in G0.edges():
         G.add_edge(u, v, weight=int(random.uniform(1, w)))
+    for node in G0.nodes:
+        if G0.degree(node) == 0:
+            to = random.randint(0, n)
+            while to == node:
+                to = random.randint(0, n)
+            G.add_edge(node, to, weight=int(random.uniform(1, w)))
     return G
 
 def print_graph(G, show_weight=True):

@@ -24,14 +24,20 @@ class HeatDegreeModel:
 
     def __build_relevance__(self):
         n = self.g.number_of_nodes()
-        self.relevance = [[set() for _ in range(n)] for _ in range(n)]
+        self.relevance = [[dict() for _ in range(n)] for _ in range(n)]
 
         for i, j in self.g.edges:
             i, j = (j, i) if i > j else (i, j)
             for s in self.src2recv:
                 for r in self.src2recv[s]:
                     if self.query(s, i) + self.g[i][j]['weight'] + self.query(j, r) <= self.delay_limit[s]:
-                        self.relevance[i][j].add(s)
+                        self.__inc_relevance__(s, i, j)
+
+    def __inc_relevance__(self, s, i, j):
+        if s not in self.relevance[i][j]:
+            self.relevance[i][j][s] = 1
+        else:
+            self.relevance[i][j][s] = self.relevance[i][j][s] + 1
 
     def __build_heat_matrix__(self):
         n = self.g.number_of_nodes()
@@ -39,11 +45,11 @@ class HeatDegreeModel:
 
     def __update_heat_degree_ij__(self, i, j):
         if not self.g.has_edge(i, j):
-            return inf, inf
-        _sum, _ = self.check_bandwidth_limit(i, j)
+            return inf, inf, True
+        _sum, congestion = self.check_bandwidth_limit(i, j)
         a = self.g[i][j]['weight'] / (self.g.number_of_nodes() * self.__max_delay__)
         b = pow(_sum / self.g[i][j]['bandwidth'], 2)
-        return a, b
+        return a, b, congestion
 
     def get_heat_degree_ij(self, s, i, j):
         i, j = (i, j) if i < j else (j, i)
@@ -63,9 +69,12 @@ class HeatDegreeModel:
         for s in self.src2recv:
             self.routing_trees[s] = {}
             for r in self.src2recv[s]:
-                _, path = nx.single_source_dijkstra(self.g, s, target=r,
-                                                    weight=lambda u, v, d: self.get_heat_degree_ij(s, u, v))
-                self.routing_trees[s][r] = path
+                self.__single_source_routing__(s, r)
+
+    def __single_source_routing__(self, s, r):
+        _, path = nx.single_source_dijkstra(self.g, s, target=r,
+                                            weight=lambda u, v, d: self.get_heat_degree_ij(s, u, v))
+        self.routing_trees[s][r] = path
 
     def __pll_query__(self, u, v):
         if self.__labels__ == 0:
@@ -101,20 +110,24 @@ class HeatDegreeModel:
             _sum += self.bandwidth_require[s]
         return _sum, _sum <= self.g[u][v]['bandwidth']
 
-    def get_max_delay(self):
-        return
-
     def add_recv(self, s, r):
         self.src2recv[s].append(r)
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
             if (self.query(s, u) + self.g[u][v]['weight'] + self.query(v, r)) <= self.delay_limit[s]:
-                self.relevance[u][v].add(s)
+                self.__inc_relevance__(s, u, v)
                 updated.add((u, v))
-        for s in self.src2recv:
-            for u, v in updated:
-                self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
+        need_refactor = set()
+        for u, v in updated:
+            self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
+            for may_congested in self.src2recv:
+                if self.heat[u][v][2] and self.__is_routing_contains_edge__(may_congested, u, v):
+                    need_refactor.add(may_congested)
+        for to_refactor_s in need_refactor:
+            for to_refactor_r in self.src2recv[to_refactor_s]:
+                self.__single_source_routing__(to_refactor_s, to_refactor_r)
+        self.__single_source_routing__(s, r)
 
 
 def test_heat_matrix_based_routing():
@@ -151,6 +164,7 @@ def test_member_change():
 
     distance = nx.floyd_warshall_numpy(G)
     model = HeatDegreeModel(G, D, B, S2R)
+    print(model.routing_trees)
 
     import random
     # add = random.randint(0, 1)
@@ -163,6 +177,7 @@ def test_member_change():
             r = random.randint(0, number_of_nodes - 1)
         S2R[S[0]] = S2R.get(S[0], []) + [r]
         model.add_recv(S[0], r)
+        print(model.routing_trees)
 
     #     relevance3 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
     #     heat3 = heat_degree_matrix(relevance3, G, S, D, B)
@@ -199,10 +214,8 @@ def test_model():
 
 
 if __name__ == '__main__':
-    # G = random_graph.demo_graph()
-    # print(G[1][0])
-    # random_graph.print_graph(G)
-    test_model()
+    # test_model()
     # test_relevance_run_time()
-    # test_member_change()
+    test_member_change()
     # test_heat_matrix_based_routing()
+
