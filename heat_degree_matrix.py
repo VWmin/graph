@@ -17,6 +17,7 @@ class HeatDegreeModel:
         self.routing_trees = {}
         self.__labels__ = 0
         self.__distance__ = 0
+        self.__max_delay__ = max(dict(self.g.edges).items(), key=lambda x: x[1]['weight'])[1]['weight']
         self.__build_relevance__()
         self.__build_heat_matrix__()
         self.__routing__()
@@ -33,31 +34,37 @@ class HeatDegreeModel:
                         self.relevance[i][j].add(s)
 
     def __build_heat_matrix__(self):
-        max_delay = self.get_max_delay()
         n = self.g.number_of_nodes()
+        self.heat = [[self.__update_heat_degree_ij__(i, j) for j in range(n)] for i in range(n)]
 
-        def heat_degree_matrix_ij(s, i, j):
-            # 如果边ij是s的候选边，且已在以s为源的现存多播树中
-            # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
-            if s in self.relevance[i][j]:
-                ok1 = self.__is_routing_contains_edge__(s, i, j)
-                _sum, ok2 = self.check_bandwidth_limit(i, j)
-                if ok1 or ok2:
-                    return self.g[i][j]['weight'] / (n * max_delay)
-                else:
-                    return pow(_sum / self.g[i][j]['bandwidth'], 2)
+    def __update_heat_degree_ij__(self, i, j):
+        if not self.g.has_edge(i, j):
+            return inf, inf
+        _sum, _ = self.check_bandwidth_limit(i, j)
+        a = self.g[i][j]['weight'] / (self.g.number_of_nodes() * self.__max_delay__)
+        b = pow(_sum / self.g[i][j]['bandwidth'], 2)
+        return a, b
+
+    def get_heat_degree_ij(self, s, i, j):
+        i, j = (i, j) if i < j else (j, i)
+        # 如果边ij是s的候选边，且已在以s为源的现存多播树中
+        # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
+        if s in self.relevance[i][j]:
+            ok1 = self.__is_routing_contains_edge__(s, i, j)
+            _, ok2 = self.check_bandwidth_limit(i, j)
+            if ok1 or ok2:
+                return self.heat[i][j][0]
             else:
-                return inf
-
-        self.heat = {}
-        for src in self.src2recv:
-            self.heat[src] = [[heat_degree_matrix_ij(src, i, j) for j in range(n)] for i in range(n)]
+                return self.heat[i][j][1]
+        else:
+            return inf
 
     def __routing__(self):
         for s in self.src2recv:
             self.routing_trees[s] = {}
             for r in self.src2recv[s]:
-                _, path = nx.single_source_dijkstra(self.g, s, target=r, weight=lambda u, v, d: self.heat[s][u][v])
+                _, path = nx.single_source_dijkstra(self.g, s, target=r,
+                                                    weight=lambda u, v, d: self.get_heat_degree_ij(s, u, v))
                 self.routing_trees[s][r] = path
 
     def __pll_query__(self, u, v):
@@ -73,10 +80,12 @@ class HeatDegreeModel:
     def __is_routing_contains_edge__(self, s, u, v) -> bool:
         if s not in self.routing_trees:
             return False
-        for i in range(1, len(self.routing_trees[s])):
-            a, b = self.routing_trees[s][i-1], self.routing_trees[s][i]
-            if (a, b) == (u, v) or (b, a) == (u, v):
-                return True
+        for recv in self.routing_trees[s]:
+            path = self.routing_trees[s][recv]
+            for i in range(1, len(path)):
+                a, b = path[i - 1], path[i]
+                if (a, b) == (u, v) or (b, a) == (u, v):
+                    return True
         return False
 
     def query(self, u, v):
@@ -93,22 +102,19 @@ class HeatDegreeModel:
         return _sum, _sum <= self.g[u][v]['bandwidth']
 
     def get_max_delay(self):
-        return max(dict(self.g.edges).items(), key=lambda x: x[1]['weight'])
+        return
 
     def add_recv(self, s, r):
         self.src2recv[s].append(r)
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
-            if (self.query(s, u)+self.g[u][v]['weight']+self.query(v, r)) <= self.delay_limit[s]:
+            if (self.query(s, u) + self.g[u][v]['weight'] + self.query(v, r)) <= self.delay_limit[s]:
                 self.relevance[u][v].add(s)
                 updated.add((u, v))
         for s in self.src2recv:
             for u, v in updated:
-                if s in self.relevance[u][v]:
-                    _sum, ok = self.check_bandwidth_limit(u, v)
-                    # if ok:
-
+                self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
 
 
 def test_heat_matrix_based_routing():
@@ -188,9 +194,14 @@ def test_model():
     model = HeatDegreeModel(G, D, B, S2R)
     print(model.routing_trees)
     # print(model.heat)
+    # print(G[0][0])
+    # random_graph.print_graph(G)
 
 
 if __name__ == '__main__':
+    # G = random_graph.demo_graph()
+    # print(G[1][0])
+    # random_graph.print_graph(G)
     test_model()
     # test_relevance_run_time()
     # test_member_change()
