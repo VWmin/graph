@@ -39,6 +39,11 @@ class HeatDegreeModel:
         else:
             self.relevance[i][j][s] = self.relevance[i][j][s] + 1
 
+    def __dec_relevance__(self, s, i, j):
+        if s not in self.relevance[i][j]:
+            return
+        self.relevance[i][j][s] = self.relevance[i][j][s] - 1
+
     def __build_heat_matrix__(self):
         n = self.g.number_of_nodes()
         self.heat = [[self.__update_heat_degree_ij__(i, j) for j in range(n)] for i in range(n)]
@@ -128,6 +133,19 @@ class HeatDegreeModel:
             for to_refactor_r in self.src2recv[to_refactor_s]:
                 self.__single_source_routing__(to_refactor_s, to_refactor_r)
         self.__single_source_routing__(s, r)
+
+    def remove_recv(self, s, r):
+        if s not in self.src2recv or r not in self.src2recv[s]:
+            return
+        updated = set()
+        for u, v in self.g.edges:
+            u, v = (v, u) if u > v else (u, v)
+            if (self.query(s, u) + self.g[u][v]['weight'] + self.query(v, r)) <= self.delay_limit[s]:
+                self.__dec_relevance__(s, u, v)
+                if self.relevance[u][v] == 0:
+                    updated.add((u, v))
+        for u, v in updated:
+            self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
 
 
 def test_heat_matrix_based_routing():
