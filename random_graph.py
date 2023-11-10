@@ -14,6 +14,10 @@ def random_graph(n, p, w):
             while to == node:
                 to = random.randint(0, n)
             G.add_edge(node, to, weight=int(random.uniform(1, w)))
+    sub_graphs = list(nx.connected_components(G))
+    if len(sub_graphs) != 1:
+        for i in range(1, len(sub_graphs)):
+            G.add_edge(next(iter(sub_graphs[i-1])), next(iter(sub_graphs[i])), weight=int(random.uniform(1, w)))
     return G
 
 def print_graph(G, show_weight=True):
