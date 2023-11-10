@@ -46,19 +46,19 @@ class HeatDegreeModel:
     def __update_heat_degree_ij__(self, i, j):
         if not self.g.has_edge(i, j):
             return inf, inf, True
-        _sum, congestion = self.check_bandwidth_limit(i, j)
+        _sum, available = self.check_bandwidth_limit(i, j)
         a = self.g[i][j]['weight'] / (self.g.number_of_nodes() * self.__max_delay__)
         b = pow(_sum / self.g[i][j]['bandwidth'], 2)
-        return a, b, congestion
+        return a, b, available
 
     def get_heat_degree_ij(self, s, i, j):
         i, j = (i, j) if i < j else (j, i)
         # 如果边ij是s的候选边，且已在以s为源的现存多播树中
         # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
         if s in self.relevance[i][j]:
-            ok1 = self.__is_routing_contains_edge__(s, i, j)
-            _, ok2 = self.check_bandwidth_limit(i, j)
-            if ok1 or ok2:
+            in_routing_tree = self.__is_routing_contains_edge__(s, i, j)
+            edge_available = self.heat[i][j][2]
+            if in_routing_tree or edge_available:
                 return self.heat[i][j][0]
             else:
                 return self.heat[i][j][1]
@@ -122,7 +122,7 @@ class HeatDegreeModel:
         for u, v in updated:
             self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
             for may_congested in self.src2recv:
-                if self.heat[u][v][2] and self.__is_routing_contains_edge__(may_congested, u, v):
+                if not self.heat[u][v][2] and self.__is_routing_contains_edge__(may_congested, u, v):
                     need_refactor.add(may_congested)
         for to_refactor_s in need_refactor:
             for to_refactor_r in self.src2recv[to_refactor_s]:
@@ -169,26 +169,16 @@ def test_member_change():
     import random
     # add = random.randint(0, 1)
     add = 1
-    heat2 = None
-    heat3 = None
+    r = 0
     if add == 1:
         r = random.randint(0, number_of_nodes - 1)
         while r in S2R[S[0]] or r == S[0]:
             r = random.randint(0, number_of_nodes - 1)
-        S2R[S[0]] = S2R.get(S[0], []) + [r]
         model.add_recv(S[0], r)
         print(model.routing_trees)
 
-    #     relevance3 = relavence_matrix.relavence_matrix(G, distance, D, S2R)
-    #     heat3 = heat_degree_matrix(relevance3, G, S, D, B)
-    #
-    # print(f"S: {S[0]}\tR: {S2R[S[0]]}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
-    #
-    # for i in range(len(heat1)):
-    #     for j in range(len(heat1[i])):
-    #         if heat1[i][j] == inf: continue
-    #         print(
-    #             f"heat1[{i}][{j}]: {heat1[i][j]}\theat3[{i}][{j}]: {heat3[i][j]}\tdiff: {heat1[i][j] != heat3[i][j]}\n")
+    print(f"{model.src2recv}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
+
 
 
 def test_model():
