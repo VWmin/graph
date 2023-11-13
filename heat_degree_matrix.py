@@ -137,6 +137,8 @@ class HeatDegreeModel:
     def remove_recv(self, s, r):
         if s not in self.src2recv or r not in self.src2recv[s]:
             return
+        self.src2recv[s].remove(r)
+        del self.routing_trees[s][r]
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
@@ -185,18 +187,22 @@ def test_member_change():
     print(model.routing_trees)
 
     import random
-    # add = random.randint(0, 1)
-    add = 1
-    r = 0
+    add = random.randint(0, 1)
+    print(add)
     if add == 1:
         r = random.randint(0, number_of_nodes - 1)
         while r in S2R[S[0]] or r == S[0]:
             r = random.randint(0, number_of_nodes - 1)
         model.add_recv(S[0], r)
         print(model.routing_trees)
+    else:
+        r = random.randint(0, number_of_nodes - 1)
+        while r not in S2R[S[0]]:
+            r = random.randint(0, number_of_nodes - 1)
+        model.remove_recv(S[0], r)
+        print(model.routing_trees)
 
     print(f"{model.src2recv}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
-
 
 
 def test_model():
@@ -226,4 +232,3 @@ if __name__ == '__main__':
     # test_relevance_run_time()
     test_member_change()
     # test_heat_matrix_based_routing()
-

@@ -210,7 +210,7 @@ def random_S2R(n, S, p):
         if r in S:
             continue
         s = random.choice(S)
-        S2R[s] = S2R.get(s, []) + [r]
+        S2R[s] = S2R.get(s, set()) | {r}
         cnt += 1
     return S2R
 
