@@ -180,6 +180,28 @@ def test_remove_random_edge():
     verify_labels(g1, l1_from_scratch, l1_dec_pll, use_sp=True)
 
 
+def test_inc_random_edge_w():
+    g0 = random_graph.demo_graph()
+    g1 = copy.deepcopy(g0)
+    l0 = pll_weighted.weighted_pll(g0)
+    print(l0)
+
+    # inc random edge weight
+    edges = list(g1.edges)
+    u, v = edges[random.randint(0, len(edges) - 1)]
+    raw_w = g1[u][v]['weight']
+    g1[u][v]['weight'] = raw_w + random.randint(100, 200)
+    print(f"inc edge {u, v} weight from {raw_w} to {g1[u][v]['weight']}.")
+
+    l1_from_scratch = pll_weighted.weighted_pll(g1)
+    l1_dec_pll = dec_pll_w(g1, raw_w, u, v, l0)
+    from util import verify_labels
+    print(l1_from_scratch)
+    print(l1_dec_pll)
+    verify_labels(g1, l1_from_scratch, l1_dec_pll, use_sp=True)
+
+
 if __name__ == '__main__':
     # test_remove_edge()
-    test_remove_random_edge()
+    # test_remove_random_edge()
+    test_inc_random_edge_w()
