@@ -28,6 +28,13 @@ def print_graph(G, show_weight=True):
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
     plt.show()  # 显示图形
 
+def print_graph_with_labels(G, labels):
+    pos = nx.spring_layout(G, iterations=20)
+    nx.draw(G, pos, with_labels=True, alpha=0.5)
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    plt.show()
+
+
 def demo_graph():
     # G = nx.Graph()  # 创建无向图
     # G.add_edge(0, 1, weight=39)

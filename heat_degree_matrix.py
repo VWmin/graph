@@ -1,7 +1,7 @@
 import networkx as nx
 import time
 
-import pll_weighted
+import full_pll
 import random_graph
 import relavence_matrix
 from math import inf
@@ -15,7 +15,8 @@ class HeatDegreeModel:
         self.src2recv = src2recv
         self.use_pll = True
         self.routing_trees = {}
-        self.__labels__ = 0
+        # 调用该类方法会修改图的结构
+        self.__fpll__ = full_pll.FullPLL(self.g)
         self.__distance__ = 0
         self.__max_delay__ = max(dict(self.g.edges).items(), key=lambda x: x[1]['weight'])[1]['weight']
         self.__build_relevance__()
@@ -30,8 +31,17 @@ class HeatDegreeModel:
             i, j = (j, i) if i > j else (i, j)
             for s in self.src2recv:
                 for r in self.src2recv[s]:
-                    if self.query(s, i) + self.g[i][j]['weight'] + self.query(j, r) <= self.delay_limit[s]:
+                    estimated = self.__get_estimate__(s, r, i, j)
+                    if estimated <= self.delay_limit[s]:
                         self.__inc_relevance__(s, i, j)
+
+    def __get_estimate__(self, s, r, i, j):
+        if s == i or s == j:
+            return self.g[i][j]['weight'] + min(self.query(i, r), self.query(j, r))
+        elif r == i or r == j:
+            return self.g[i][j]['weight'] + min(self.query(i, s), self.query(j, s))
+        else:
+            return self.query(s, i) + self.g[i][j]['weight'] + self.query(j, r)
 
     def __inc_relevance__(self, s, i, j):
         if s not in self.relevance[i][j]:
@@ -82,9 +92,7 @@ class HeatDegreeModel:
         self.routing_trees[s][r] = path
 
     def __pll_query__(self, u, v):
-        if self.__labels__ == 0:
-            self.__labels__ = pll_weighted.weighted_pll(self.g)
-        return pll_weighted.query_distance(self.__labels__, u, v)
+        return self.__fpll__.query(u, v)
 
     def __distance_query(self, u, v):
         if self.__distance__ == 0:
@@ -115,12 +123,19 @@ class HeatDegreeModel:
             _sum += self.bandwidth_require[s]
         return _sum, _sum <= self.g[u][v]['bandwidth']
 
+    def print_heat_graph(self, s):
+        labels = {}
+        for u, v in self.g.edges:
+            labels[u, v] = round(self.get_heat_degree_ij(s, u, v), 2)
+        random_graph.print_graph_with_labels(self.g, labels)
+
     def add_recv(self, s, r):
         self.src2recv[s].append(r)
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
-            if (self.query(s, u) + self.g[u][v]['weight'] + self.query(v, r)) <= self.delay_limit[s]:
+            estimated = self.__get_estimate__(s, r, u, v)
+            if estimated <= self.delay_limit[s]:
                 self.__inc_relevance__(s, u, v)
                 updated.add((u, v))
         need_refactor = set()
@@ -130,6 +145,7 @@ class HeatDegreeModel:
                 if not self.heat[u][v][2] and self.__is_routing_contains_edge__(may_congested, u, v):
                     need_refactor.add(may_congested)
         for to_refactor_s in need_refactor:
+            self.routing_trees[to_refactor_s] = {}
             for to_refactor_r in self.src2recv[to_refactor_s]:
                 self.__single_source_routing__(to_refactor_s, to_refactor_r)
         self.__single_source_routing__(s, r)
@@ -142,12 +158,62 @@ class HeatDegreeModel:
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
-            if (self.query(s, u) + self.g[u][v]['weight'] + self.query(v, r)) <= self.delay_limit[s]:
+            estimated = self.__get_estimate__(s, r, u, v)
+            if estimated <= self.delay_limit[s]:
                 self.__dec_relevance__(s, u, v)
                 if self.relevance[u][v] == 0:
                     updated.add((u, v))
         for u, v in updated:
             self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
+
+    def change_delay(self, a, b, new_val):
+        if not self.g.has_edge(a, b):
+            return
+        raw_val = self.g[a][b]['weight']
+        self.__fpll__.change_edge_weight(a, b, new_val)
+        if new_val < raw_val:
+            # 延迟减少，原多播树依然满足
+            return
+
+        # 原本满足更新后不满足的侯选边集合
+        updated = {}
+
+        # 查看之前作为候选边的边，是否在修改后仍是侯选边
+        for u, v in self.g.edges:
+            u, v = (v, u) if v < u else u, v
+            if len(self.relevance[u][v]) != 0:
+                for s in list(self.relevance[u][v].keys()):
+                    self.relevance[u][v][s] = 0
+                    for r in self.src2recv[s]:
+                        estimated = self.__get_estimate__(s, r, u, v)
+                        if estimated <= self.delay_limit[s]:
+                            self.__inc_relevance__(s, u, v)
+                    if self.relevance[u][v][s] == 0:
+                        updated[u, v] = updated.get((u, v), [])
+                        updated[u, v].append(s)
+                        del self.relevance[u][v][s]
+
+        # 需要重建多播树的源节点集合
+        need_refactor = set()
+
+        # 如果(u, v)曾在s的多播树中，且现在可能拥塞或是不再作为侯选边，那么需要重构以s为源的多播树
+        for u, v in updated:
+            self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
+            for s in updated[u, v]:
+                if ((not self.heat[u][v][2] or s not in self.relevance[u][v])
+                        and self.__is_routing_contains_edge__(s, u, v)):
+                    need_refactor.add(s)
+
+        for to_refactor_s in need_refactor:
+            self.routing_trees[to_refactor_s] = {}
+            for to_refactor_r in self.src2recv[to_refactor_s]:
+                self.__single_source_routing__(to_refactor_s, to_refactor_r)
+
+
+def print_2d_array(array):
+    for d1 in array:
+        print(f"{d1}")
+    print()
 
 
 def test_heat_matrix_based_routing():
@@ -205,6 +271,32 @@ def test_member_change():
     print(f"{model.src2recv}\tr: {r}\toperation: {'add' if add else 'delete'}\n")
 
 
+def test_edge_change():
+    weight_range = 100
+    prob_of_recv = 0.2
+    bandwidth_range = 100
+    g = random_graph.demo_graph()
+    number_of_nodes = g.number_of_nodes()
+    # S = relavence_matrix.random_single_s(number_of_nodes)
+    S = {2}
+    relavence_matrix.add_random_bandwidth_attr(g, bandwidth_range, .5, .5)
+    # S2R = relavence_matrix.random_S2R(number_of_nodes, S, prob_of_recv)
+    S2R = {2: {7}}
+    # D = relavence_matrix.random_D(S, weight_range)  # Delay limit of each source
+    D = {2: 100}
+    B = relavence_matrix.random_B(S, bandwidth_range, .4, .4)  # Bandwidth requirement of each source
+    print(D)
+
+    model = HeatDegreeModel(g, D, B, S2R)
+    model.print_heat_graph(2)
+    print_2d_array(model.relevance)
+    print(model.routing_trees)
+    model.change_delay(2, 4, 200)
+    print(model.routing_trees)
+    model.print_heat_graph(2)
+    print_2d_array(model.relevance)
+
+
 def test_model():
     number_of_nodes = 200
     prob_of_edge = 0.1
@@ -230,5 +322,6 @@ def test_model():
 if __name__ == '__main__':
     # test_model()
     # test_relevance_run_time()
-    test_member_change()
+    # test_member_change()
     # test_heat_matrix_based_routing()
+    test_edge_change()
