@@ -71,17 +71,17 @@ def greedy_restore(G: nx.Graph, L, AX, AY):
     if len(AY) < len(AX):
         SA, LA = AY, AX
     for a in SA:
-        mark, dist = {}, {}
+        visited, dist = {}, {}
         for v in G.nodes:
-            mark[v], dist[v] = False, inf
+            visited[v], dist[v] = False, inf
+        dist[a] = 0
         que = PriorityQueue()
-        que.push((0, a))
-        mark[a], dist[a] = True, 0
-        while que.size():
+        que.push((dist[a], a))
+        while que.size() != 0:
             _, v = que.pop()
-            if mark[v]:
+            if visited[v]:
                 continue
-            mark[v] = True
+            visited[v] = True
             if v in LA:
                 if dist[v] < query(L, a, v):
                     if v < a:
@@ -89,9 +89,10 @@ def greedy_restore(G: nx.Graph, L, AX, AY):
                     else:
                         L[v][a] = dist[v]
             for u in G.neighbors(v):
-                if dist[u] > dist[v] + G[u][v]['weight']:
-                    dist[u] = dist[v] + G[u][v]['weight']
+                if dist[u] > dist[v] + G[v][u]['weight']:
+                    dist[u] = dist[v] + G[v][u]['weight']
                     que.push((dist[u], u))
+
     return L
 
 
@@ -134,7 +135,7 @@ def test_remove_edge():
     L = pll_weighted.weighted_pll(G)
     print("origin L: ", L)
     G_old = copy.deepcopy(G)
-    u, v = 3, 6
+    u, v = 6, 8
     raw_w = G[u][v]['weight']
     G.remove_edge(u, v)
     AX, AY = affected(G, raw_w, L, u, v), affected(G, raw_w, L, v, u)
@@ -154,8 +155,8 @@ def test_remove_edge():
         for v in G.nodes:
             if d(L3, u, v) != d(L_new, u, v):
                 print(u, v, d(L3, u, v), d(L_new, u, v))
-    random_graph.print_graph(G)
-    random_graph.print_graph(G_old)
+    # random_graph.print_graph(G)
+    # random_graph.print_graph(G_old)
 
 
 def test_remove_random_edge():
@@ -166,8 +167,7 @@ def test_remove_random_edge():
 
     # remove random edge
     edges = list(g1.edges)
-    # u, v = edges[random.randint(0, len(edges) - 1)]
-    u, v = 3, 6
+    u, v = edges[random.randint(0, len(edges) - 1)]
     raw_w = g1[u][v]['weight']
     g1.remove_edge(u, v)
     print(f"removed edge {u, v} with w={raw_w}.")
@@ -181,5 +181,5 @@ def test_remove_random_edge():
 
 
 if __name__ == '__main__':
-    test_remove_edge()
-    # test_remove_random_edge()
+    # test_remove_edge()
+    test_remove_random_edge()
