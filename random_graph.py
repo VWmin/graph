@@ -79,3 +79,34 @@ def demo_graph_kmb():
         ])
     G = nx.from_numpy_array(A)
     return G
+
+def gt_itm_example():
+    filename = r"D:\program\gt-itm\sample-graphs\rand\r10\r10-0.alt"
+    g = nx.Graph()
+    with open(filename, "r") as f:
+        flag = False
+        for line in f.readlines():
+            if not flag and line.startswith("EDGES"):
+                flag = True
+            elif flag:
+                arr = line.split(' ')[:2]
+                g.add_edge(arr[0], arr[1])
+    print_graph(g)
+
+def as_733_example():
+    filename = r"C:\Users\user\Downloads\as-733\as19971109.txt"
+    g = nx.Graph()
+    with open(filename, "r") as f:
+        flag = False
+        for line in f.readlines():
+            if not flag and line.startswith("# FromNodeId	ToNodeId"):
+                flag = True
+            elif flag:
+                arr = line.split('\t')[:2]
+                arr[1] = arr[1][:-1]
+                g.add_edge(arr[0], arr[1])
+
+
+if __name__ == '__main__':
+    as_733_example()
+
