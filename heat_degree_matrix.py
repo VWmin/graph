@@ -229,7 +229,7 @@ class HeatDegreeModel:
 
     def statistic(self):
         for op, t in self.op_history:
-            print(f"operation: {op:<20} \t\t cost: {round(t, 4)}ms")
+            print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
 
 def print_2d_array(array):
@@ -320,7 +320,7 @@ def test_edge_change():
 
 
 def test_model():
-    number_of_nodes = 200
+    number_of_nodes = 1000
     prob_of_edge = 0.1
     weight_range = 100
     prob_of_src = 0.1
@@ -331,8 +331,7 @@ def test_model():
     relavence_matrix.add_random_bandwidth_attr(G, bandwidth_range, .9, 1.1)
     S = relavence_matrix.random_S(number_of_nodes, prob_of_src)
     S2R = relavence_matrix.random_S2R(number_of_nodes, S, prob_of_recv)
-    D = relavence_matrix.random_D(S, weight_range)  # Delay limit of each source
-    B = relavence_matrix.random_B(S, bandwidth_range, .2, .5)  # Bandwidth requirement of each source
+    D = relavence_matrix.random_D(S, weight_range)  # Delay limit of each source/ of each source
 
     model = HeatDegreeModel(G, D, B, S2R)
     print(model.routing_trees)
