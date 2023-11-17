@@ -15,15 +15,22 @@ class HeatDegreeModel:
         self.src2recv = src2recv
         self.use_pll = True
         self.routing_trees = {}
-        # 调用该类方法会修改图的结构
-        self.__fpll__ = full_pll.FullPLL(self.g)
+        self.op_history = []
         self.__distance__ = 0
+        self.__build_full_pll__()
         self.__max_delay__ = max(dict(self.g.edges).items(), key=lambda x: x[1]['weight'])[1]['weight']
         self.__build_relevance__()
         self.__build_heat_matrix__()
         self.__routing__()
 
+    def __build_full_pll__(self):
+        t1 = time.time()
+        # 调用该类方法会修改图的结构
+        self.__fpll__ = full_pll.FullPLL(self.g)
+        self.op_history.append(("build_full_pll", time.time() - t1))
+
     def __build_relevance__(self):
+        t1 = time.time()
         n = self.g.number_of_nodes()
         self.relevance = [[dict() for _ in range(n)] for _ in range(n)]
 
@@ -34,6 +41,7 @@ class HeatDegreeModel:
                     estimated = self.__get_estimate__(s, r, i, j)
                     if estimated <= self.delay_limit[s]:
                         self.__inc_relevance__(s, i, j)
+        self.op_history.append(("build_relevance", time.time() - t1))
 
     def __get_estimate__(self, s, r, i, j):
         if s == i or s == j:
@@ -55,8 +63,10 @@ class HeatDegreeModel:
         self.relevance[i][j][s] = self.relevance[i][j][s] - 1
 
     def __build_heat_matrix__(self):
+        t1 = time.time()
         n = self.g.number_of_nodes()
         self.heat = [[self.__update_heat_degree_ij__(i, j) for j in range(n)] for i in range(n)]
+        self.op_history.append(("build_heat_matrix", time.time() - t1))
 
     def __update_heat_degree_ij__(self, i, j):
         if not self.g.has_edge(i, j):
@@ -81,10 +91,12 @@ class HeatDegreeModel:
             return inf
 
     def __routing__(self):
+        t1 = time.time()
         for s in self.src2recv:
             self.routing_trees[s] = {}
             for r in self.src2recv[s]:
                 self.__single_source_routing__(s, r)
+        self.op_history.append(("routing", time.time() - t1))
 
     def __single_source_routing__(self, s, r):
         _, path = nx.single_source_dijkstra(self.g, s, target=r,
@@ -130,6 +142,7 @@ class HeatDegreeModel:
         random_graph.print_graph_with_labels(self.g, labels)
 
     def add_recv(self, s, r):
+        t1 = time.time()
         self.src2recv[s].append(r)
         updated = set()
         for u, v in self.g.edges:
@@ -149,8 +162,10 @@ class HeatDegreeModel:
             for to_refactor_r in self.src2recv[to_refactor_s]:
                 self.__single_source_routing__(to_refactor_s, to_refactor_r)
         self.__single_source_routing__(s, r)
+        self.op_history.append(("add_recv", time.time() - t1))
 
     def remove_recv(self, s, r):
+        t1 = time.time()
         if s not in self.src2recv or r not in self.src2recv[s]:
             return
         self.src2recv[s].remove(r)
@@ -165,8 +180,10 @@ class HeatDegreeModel:
                     updated.add((u, v))
         for u, v in updated:
             self.heat[u][v] = self.__update_heat_degree_ij__(u, v)
+        self.op_history.append(("remove_recv", time.time() - t1))
 
     def change_delay(self, a, b, new_val):
+        t1 = time.time()
         if not self.g.has_edge(a, b):
             return
         raw_val = self.g[a][b]['weight']
@@ -208,6 +225,11 @@ class HeatDegreeModel:
             self.routing_trees[to_refactor_s] = {}
             for to_refactor_r in self.src2recv[to_refactor_s]:
                 self.__single_source_routing__(to_refactor_s, to_refactor_r)
+        self.op_history.append(("change_delay", time.time() - t1))
+
+    def statistic(self):
+        for op, t in self.op_history:
+            print(f"operation: {op:<20} \t\t cost: {round(t, 4)}ms")
 
 
 def print_2d_array(array):
@@ -314,14 +336,12 @@ def test_model():
 
     model = HeatDegreeModel(G, D, B, S2R)
     print(model.routing_trees)
-    # print(model.heat)
-    # print(G[0][0])
-    # random_graph.print_graph(G)
+    model.statistic()
 
 
 if __name__ == '__main__':
-    # test_model()
+    test_model()
     # test_relevance_run_time()
     # test_member_change()
     # test_heat_matrix_based_routing()
-    test_edge_change()
+    # test_edge_change()
