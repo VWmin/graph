@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt  # 导入 Matplotlib 工具包
 import random
 import numpy as np
 
+
 def random_graph(n, p, w):
     G0 = nx.erdos_renyi_graph(n, p)
     G = nx.Graph()  # 创建无向图
@@ -17,8 +18,14 @@ def random_graph(n, p, w):
     sub_graphs = list(nx.connected_components(G))
     if len(sub_graphs) != 1:
         for i in range(1, len(sub_graphs)):
-            G.add_edge(next(iter(sub_graphs[i-1])), next(iter(sub_graphs[i])), weight=int(random.uniform(1, w)))
+            G.add_edge(next(iter(sub_graphs[i - 1])), next(iter(sub_graphs[i])), weight=int(random.uniform(1, w)))
     return G
+
+
+def add_attr_with_random_value(g, name, lo, hi):
+    for u, v in g.edges:
+        g[u][v][name] = random.randint(lo, hi)
+
 
 def print_graph(G, show_weight=True):
     pos = nx.spring_layout(G, iterations=20)  # 用 FR算法排列节点
@@ -27,6 +34,7 @@ def print_graph(G, show_weight=True):
         labels = nx.get_edge_attributes(G, 'weight')
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
     plt.show()  # 显示图形
+
 
 def print_graph_with_labels(G, labels):
     pos = nx.spring_layout(G, iterations=20)
@@ -61,9 +69,10 @@ def demo_graph():
         [0, 46, 0, 71, 0, 0, 0, 0, 20],
         [0, 0, 0, 0, 29, 25, 0, 0, 45],
         [0, 0, 0, 0, 0, 25, 20, 45, 0],
-        ])
+    ])
     G = nx.from_numpy_array(A)
     return G
+
 
 def demo_graph_kmb():
     A = np.array([
@@ -76,12 +85,13 @@ def demo_graph_kmb():
         [0, 0, 0, 0, 0, 0, 0, 0.5, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0.5],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ])
+    ])
     G = nx.from_numpy_array(A)
     return G
 
-def gt_itm_example():
-    filename = r"D:\program\gt-itm\sample-graphs\rand\r10\r10-0.alt"
+
+def gt_itm_example() -> nx.Graph:
+    filename = r"D:\program\gt-itm\sample-graphs\ts\ts600\ts600-0.alt"
     g = nx.Graph()
     with open(filename, "r") as f:
         flag = False
@@ -91,7 +101,8 @@ def gt_itm_example():
             elif flag:
                 arr = line.split(' ')[:2]
                 g.add_edge(arr[0], arr[1])
-    print_graph(g)
+    return g
+
 
 def as_733_example():
     filename = r"C:\Users\user\Downloads\as-733\as19971109.txt"
@@ -109,4 +120,3 @@ def as_733_example():
 
 if __name__ == '__main__':
     as_733_example()
-

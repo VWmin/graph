@@ -334,14 +334,29 @@ def test_model():
     D = relavence_matrix.random_D(S, weight_range)  # Delay limit of each source
     B = relavence_matrix.random_B(S, bandwidth_range, .2, .5)  # Bandwidth requirement of each source
 
-    model = HeatDegreeModel(G, D, B, S2R)
-    print(model.routing_trees)
-    model.statistic()
+    print(S2R)
+    # model = HeatDegreeModel(G, D, B, S2R)
+    # print(model.routing_trees)
+    # model.statistic()
+
+
+def test_ts_graph():
+    g = random_graph.gt_itm_example()
+    number_of_nodes = g.number_of_nodes()
+    b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
+    b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
+    d_lo, d_hi = 1, 10
+    d_req_lo, d_req_hi = 50, 100
+
+    random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
+    S = relavence_matrix.random_s_with_number(number_of_nodes, 10)
+    S2R = relavence_matrix.random_s2r_with_number(number_of_nodes, 10, S)
 
 
 if __name__ == '__main__':
-    test_model()
+    # test_model()
     # test_relevance_run_time()
     # test_member_change()
     # test_heat_matrix_based_routing()
     # test_edge_change()
+    test_ts_graph()
