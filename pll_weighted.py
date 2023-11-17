@@ -56,11 +56,14 @@ def query_distance(labels, u, v):
     if u not in labels or v not in labels:
         return inf
     distance = inf
-    k = labels[u].keys() & labels[v].keys()
-    for landmark in k:
-        distance = min(distance, labels[u][landmark] + labels[v][landmark])
+    # k = labels[u].keys() & labels[v].keys()
+    # for landmark in k:
+    #     distance = min(distance, labels[u][landmark] + labels[v][landmark])
+    # return distance
+    for x in labels[v]:
+        if x in labels[u]:
+            distance = min(distance, labels[u][x] + labels[v][x])
     return distance
-
 
 def find_hub(labels, u, v):
     return labels[u].keys() & labels[v].keys()
