@@ -12,12 +12,16 @@ class FullPLL:
         self.stamp = 0
         # init labels
         self.labels = pll_weighted.weighted_pll(self.g)
+        self.cache = {}
 
     def __next_stamp__(self):
         self.stamp += 1
+        self.cache = {}
 
     def query(self, u, v):
-        return pll_weighted.query_distance(self.labels, u, v)
+        if (u, v) not in self.cache:
+            self.cache[(u, v)] = pll_weighted.query_distance(self.labels, u, v)
+        return self.cache[(u, v)]
 
     # inc algorithm
     def add_edge(self, u, v, val):
