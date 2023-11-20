@@ -100,7 +100,7 @@ def gt_itm_example() -> nx.Graph:
                 flag = True
             elif flag:
                 arr = line.split(' ')[:2]
-                g.add_edge(arr[0], arr[1])
+                g.add_edge(int(arr[0]), int(arr[1]))
     return g
 
 

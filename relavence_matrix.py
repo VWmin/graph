@@ -207,13 +207,6 @@ def random_S(n, p):
     return S
 
 
-def random_s_with_number(total, number):
-    ret = set()
-    while len(ret) != number:
-        ret.add(random.randint(0, total-1))
-    return list(ret)
-
-
 def random_single_s(n):
     s = random.randint(0, n - 1)
     return [s]
@@ -233,17 +226,6 @@ def random_S2R(n, S, p):
         S2R[s] = S2R.get(s, set()) | {r}
         cnt += 1
     return S2R
-
-def random_s2r_with_number(total, number, S):
-    ret = {}
-    for s in S:
-        ret[s] = set()
-        while len(ret[s]) != number:
-            t = random.randint(0, total-1)
-            if t == s:
-                continue
-            ret[s].add(t)
-    return ret
 
 
 def general_floyd(G: nx.Graph):

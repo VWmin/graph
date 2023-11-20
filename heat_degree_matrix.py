@@ -1,7 +1,7 @@
 import networkx as nx
 import time
-
 import full_pll
+import util
 import random_graph
 import relavence_matrix
 from math import inf
@@ -349,8 +349,14 @@ def test_ts_graph():
     d_req_lo, d_req_hi = 50, 100
 
     random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
-    S = relavence_matrix.random_s_with_number(number_of_nodes, 10)
-    S2R = relavence_matrix.random_s2r_with_number(number_of_nodes, 10, S)
+    random_graph.add_attr_with_random_value(g, "weight", d_lo, d_hi)
+    S = util.random_s_with_number(number_of_nodes, 10)
+    S2R = util.random_s2r_with_number(number_of_nodes, 10, S)
+    B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
+    D = util.random_d_with_range(S, d_req_lo, d_req_hi)
+
+    model = HeatDegreeModel(g, D, B, S2R)
+    print(model.routing_trees)
 
 
 if __name__ == '__main__':
