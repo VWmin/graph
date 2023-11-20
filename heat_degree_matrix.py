@@ -359,10 +359,24 @@ def test_ts_graph():
     print(model.routing_trees)
 
 
+def test_kmb():
+    number_of_nodes = 6000
+    prob_of_edge = 0.1
+    weight_range = 100
+
+    g = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
+    terminals = util.random_s_with_number(number_of_nodes, 10)
+
+    print(terminals)
+    Ts = relavence_matrix.KMB(g, list(terminals))
+    print(Ts)
+
+
 if __name__ == '__main__':
     # test_model()
     # test_relevance_run_time()
     # test_member_change()
     # test_heat_matrix_based_routing()
     # test_edge_change()
-    test_ts_graph()
+    # test_ts_graph()
+    test_kmb()

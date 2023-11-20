@@ -66,4 +66,59 @@ class FullPLL:
             # inc alg
             self.labels = inc_pll_weighted.inc_pll_w(self.g, self.labels, u, v)
 
+    # def kmb(self, terminals):
+    #     import time
+    #     # 1. get G1 complete graph with terminals
+    #     t0 = time.time()
+    #     dis = {}
+    #     G1 = nx.Graph()
+    #     for u in terminals:
+    #         for v in terminals:
+    #             if u == v:
+    #                 continue
+    #             G1.add_edge(u, v, weight=self.query(u, v))
+    #
+    #     t1 = time.time()
+    #     print("G1 cost: ", t1 - t0)
+    #
+    #     # 2. prime G1
+    #     T1E = nx.minimum_spanning_edges(G1, data=False)
+    #     t2 = time.time()
+    #     print("prime G1 cost: ", t2 - t1)
+    #
+    #     # 3. recover Gs
+    #     Gs = nx.Graph()
+    #     for edge in list(T1E):
+    #         i, j = edge
+    #         path = dis[i][j][1]
+    #         for k in range(len(path) - 1):
+    #             Gs.add_edge(path[k], path[k + 1], weight=G[path[k]][path[k + 1]]['weight'])
+    #     t3 = time.time()
+    #     print("recover Gs cost: ", t3 - t2)
+    #
+    #     # 4. prime Ts
+    #     Ts = nx.minimum_spanning_tree(Gs)
+    #     t4 = time.time()
+    #     print("prime Ts cost: ", t4 - t3)
+    #
+    #     # 5. reserve terminals - remove any leaf that not in terminals
+    #     # 5.1 collect leafs
+    #     target = set(terminals)
+    #     leafs = set()
+    #     for node in Ts.nodes:
+    #         if Ts.degree(node) == 1:
+    #             leafs.add(node)
+    #     leafs = leafs - target
+    #     # 5.2 remove leaf and edge not related to terminals
+    #     for node in leafs:
+    #         # print("terminals: ", target, ", leafs: ", leafs,  ", checking node: ", node)
+    #         next = node
+    #         while next:
+    #             neighbors = list(Ts.neighbors(next))
+    #             Ts.remove_node(next)
+    #             next = neighbors[0] if len(neighbors) == 1 else None
+    #     t5 = time.time()
+    #     print("reserve terminals cost: ", t5 - t4)
+    #     return Ts
+
 # FIXME 如果图不连通，算法有效吗？
