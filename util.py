@@ -5,7 +5,8 @@ import networkx as nx
 
 
 class PriorityQueue:
-    container = []
+    def __init__(self):
+        self.container = []
 
     def push(self, item):
         heapq.heappush(self.container, item)
