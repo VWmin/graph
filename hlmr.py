@@ -8,12 +8,12 @@ import util
 from math import inf
 
 
-def hlmr(g: nx.Graph, s2r, delay_limit, bandwidth_require):
+def hlmr(g: nx.Graph, s2r, delay_limit, bandwidth_require, heat_function):
     Ts = {}
     for s in s2r:
         Ts[s] = {}
         for r in s2r[s]:
-            cost, path = hcp(g, s, r, bandwidth_require)
+            cost, path = hcp(g, s, r, bandwidth_require, heat_function)
             if cost == inf:
                 return Ts
             if cost > delay_limit[s]:
@@ -32,9 +32,9 @@ def hlmr(g: nx.Graph, s2r, delay_limit, bandwidth_require):
                 Ts[s][r] = path
 
             # 更新剩余带宽
-            for i in range(len(Ts[s][r]) - 1):
-                u, v = Ts[s][r][i], Ts[s][r][i+1]
-                g[u][v]['bandwidth'] -= bandwidth_require[s]
+            # for i in range(len(Ts[s][r]) - 1):
+            #     u, v = Ts[s][r][i], Ts[s][r][i+1]
+            #     g[u][v]['bandwidth'] -= bandwidth_require[s]
     return Ts
 
 
@@ -65,7 +65,7 @@ def trim(path, i, j):
     return path[i: j + 1]
 
 
-def hcp(g: nx.Graph, s, r, bandwidth_require):
+def hcp(g: nx.Graph, s, r, bandwidth_require, heat_function):
     # 忽略边：
     #   1. 现有的以s为根的多播树不包含这条边
     #   2. 此链路的剩余带宽不满足来自s的多播会话的带宽要求
@@ -84,9 +84,9 @@ def hcp(g: nx.Graph, s, r, bandwidth_require):
         if v == r:
             break
         for u in g.neighbors(v):
-            if g[v][u]['bandwidth'] < bandwidth_require[s]:
-                continue
-            cost = g[v][u]['weight']
+            # if g[v][u]['bandwidth'] < bandwidth_require[s]:
+            #     continue
+            cost = heat_function(s, u, v)
             vu_dist = dist[v] + cost
             if u not in seen or vu_dist < seen[u]:
                 seen[u] = vu_dist
@@ -95,7 +95,6 @@ def hcp(g: nx.Graph, s, r, bandwidth_require):
     if r not in dist:
         return inf, None
     return dist[r], paths[r]
-
 
 
 def test_hlmr():
