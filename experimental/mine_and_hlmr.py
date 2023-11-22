@@ -1,3 +1,5 @@
+import copy
+
 import hlmr
 import heat_degree_matrix
 import random_graph
@@ -21,10 +23,11 @@ def test_ts_example():
 
     print(S2R)
 
-    model = heat_degree_matrix.HeatDegreeModel(g, D, B, S2R)
-    print(model.routing_trees)
+    mine_instance = heat_degree_matrix.HeatDegreeModel(g, D, B, S2R)
+    print(mine_instance.routing_trees)
 
-    print(hlmr.hlmr(g, S2R, D, B, model.get_heat_degree_ij))
+    hlmr_instance = hlmr.HLMR(copy.deepcopy(g), D, B, S2R)
+    print(hlmr_instance.routing_trees)
 
 
 if __name__ == '__main__':

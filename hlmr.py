@@ -35,19 +35,13 @@ class HLMR:
                     n = len(path)
                     for i in range(n):
                         for j in range(i + 1, n):
-                            tmp_path = sp(self._g, path[0], path[i]) + trim(path, i, j) + sp(self._g, path[j],
-                                                                                             path[n - 1])
-                            tmp_cost = d(self._g, tmp_path)
-                            if tmp_cost <= self._delay_limit[s] and hd(self._g, tmp_path) < minc:
+                            tmp_path = self.sp(path[0], path[i]) + self.trim(path, i, j) + self.sp(path[j], path[n - 1])
+                            tmp_cost = self.d(tmp_path)
+                            if tmp_cost <= self._delay_limit[s] and self.hd(s, tmp_path) < minc:
                                 rp, minc = tmp_path, tmp_cost
                     self.routing_trees[s][r] = rp
                 else:
                     self.routing_trees[s][r] = path
-
-                # 更新剩余带宽
-                for i in range(len(self.routing_trees[s][r]) - 1):
-                    u, v = self.routing_trees[s][r][i], self.routing_trees[s][r][i + 1]
-                    self._g[u][v]['bandwidth'] -= self._bandwidth_require[s]
 
     def hcp(self, s, r):
         paths = {s: [s]}
@@ -64,7 +58,8 @@ class HLMR:
             if v == r:
                 break
             for u in self._g.neighbors(v):
-                if self._g[v][u]['bandwidth'] < self._bandwidth_require[s]:
+                _, ok = self._heat.check_bandwidth_limit(u, v)
+                if not ok:
                     continue
                 cost = self._heat.get_heat_degree_ij(s, u, v)
                 vu_dist = dist[v] + cost
@@ -76,32 +71,29 @@ class HLMR:
             return inf, None
         return dist[r], paths[r]
 
+    def d(self, path):
+        t = 0
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            t += self._g[u][v]['weight']
+        return t
 
-def d(g: nx.Graph, path):
-    t = 0
-    for i in range(len(path) - 1):
-        u, v = path[i], path[i + 1]
-        t += g[u][v]['weight']
-    return t
+    def hd(self, s, path):
+        t = 0
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            t += self._heat.get_heat_degree_ij(s, u, v)
+        return t
 
+    def sp(self, s, r):
+        if s == r:
+            return []
+        cost, path = nx.single_source_dijkstra(self._g, s, r)
+        return path
 
-def hd(g: nx.Graph, path):
-    t = 0
-    for i in range(len(path) - 1):
-        u, v = path[i], path[i + 1]
-        t += g[u][v]['heat']
-    return t
-
-
-def sp(g: nx.Graph, s, r):
-    if s == r:
-        return []
-    cost, path = nx.single_source_dijkstra(g, s, r)
-    return path
-
-
-def trim(path, i, j):
-    return path[i: j + 1]
+    @staticmethod
+    def trim(path, i, j):
+        return path[i: j + 1]
 
 
 def test_hlmr():
