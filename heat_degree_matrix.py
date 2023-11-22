@@ -5,6 +5,7 @@ import util
 import random_graph
 import relavence_matrix
 from math import inf
+from relavence_matrix import KMB
 
 
 class HeatDegreeBase:
@@ -82,13 +83,16 @@ class HeatDegreeBase:
     def is_routing_contains_edge(self, s, u, v) -> bool:
         if s not in self.routing_trees:
             return False
-        for recv in self.routing_trees[s]:
-            path = self.routing_trees[s][recv]
-            for i in range(1, len(path)):
-                a, b = path[i - 1], path[i]
-                if (a, b) == (u, v) or (b, a) == (u, v):
-                    return True
-        return False
+        if isinstance(self.routing_trees[s], nx.Graph):
+            return self.routing_trees[s].has_edge(u, v)
+        else:
+            for recv in self.routing_trees[s]:
+                path = self.routing_trees[s][recv]
+                for i in range(1, len(path)):
+                    a, b = path[i - 1], path[i]
+                    if (a, b) == (u, v) or (b, a) == (u, v):
+                        return True
+            return False
 
     def check_bandwidth_limit(self, u, v):
         u, v = (v, u) if u > v else (u, v)
@@ -145,15 +149,17 @@ class HeatDegreeModel:
     def __routing__(self):
         t1 = time.time()
         for s in self.src2recv:
-            self.routing_trees[s] = {}
-            for r in self.src2recv[s]:
-                self.__single_source_routing__(s, r)
+            # self.routing_trees[s] = {}
+            # for r in self.src2recv[s]:
+            #     self.__single_source_routing__(s, r)
+            self.routing_trees[s] = KMB(self.g, list(self.src2recv[s]) + [s],
+                                        weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
         self.op_history.append(("routing", time.time() - t1))
 
-    def __single_source_routing__(self, s, r):
-        _, path = nx.single_source_dijkstra(self.g, s, target=r,
-                                            weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
-        self.routing_trees[s][r] = path
+    # def __single_source_routing__(self, s, r):
+    #     _, path = nx.single_source_dijkstra(self.g, s, target=r,
+    #                                         weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+    #     self.routing_trees[s][r] = path
 
     def print_heat_graph(self, s):
         labels = {}
@@ -178,18 +184,16 @@ class HeatDegreeModel:
                 if not self._heat_base.heat[u][v][2] and self._heat_base.is_routing_contains_edge(may_congested, u, v):
                     need_refactor.add(may_congested)
         for to_refactor_s in need_refactor:
-            self.routing_trees[to_refactor_s] = {}
-            for to_refactor_r in self.src2recv[to_refactor_s]:
-                self.__single_source_routing__(to_refactor_s, to_refactor_r)
-        self.__single_source_routing__(s, r)
+            self.routing_trees[to_refactor_s] = KMB(self.g, list(self.src2recv[to_refactor_s]) + [to_refactor_s],
+                                                    weight=lambda x, y, d: self._heat_base.get_heat_degree_ij(
+                                                        to_refactor_s, x, y))
         self.op_history.append(("add_recv", time.time() - t1))
 
     def remove_recv(self, s, r):
         t1 = time.time()
         if s not in self.src2recv or r not in self.src2recv[s]:
             return
-        self.src2recv[s].remove(r)
-        del self.routing_trees[s][r]
+        self._remove_recv_from_routing_trees(s, r)
         updated = set()
         for u, v in self.g.edges:
             u, v = (v, u) if u > v else (u, v)
@@ -201,6 +205,15 @@ class HeatDegreeModel:
         for u, v in updated:
             self._heat_base.heat[u][v] = self._heat_base.update_heat_degree_ij(u, v)
         self.op_history.append(("remove_recv", time.time() - t1))
+
+    def _remove_recv_from_routing_trees(self, s, r):
+        self.src2recv[s].remove(r)
+        terminals = self.src2recv[s] | {s}
+        node = r
+        while self.routing_trees[s].degree(node) == 1 and node not in terminals:
+            next_node = next(self.routing_trees[s].neighbors(node))
+            self.routing_trees[s].remove_node(node)
+            node = next_node
 
     def change_delay(self, a, b, new_val):
         t1 = time.time()
@@ -242,9 +255,9 @@ class HeatDegreeModel:
                     need_refactor.add(s)
 
         for to_refactor_s in need_refactor:
-            self.routing_trees[to_refactor_s] = {}
-            for to_refactor_r in self.src2recv[to_refactor_s]:
-                self.__single_source_routing__(to_refactor_s, to_refactor_r)
+            self.routing_trees[to_refactor_s] = KMB(self.g, list(self.src2recv[to_refactor_s]) + [to_refactor_s],
+                                                    weight=lambda x, y, d: self._heat_base.get_heat_degree_ij(
+                                                        to_refactor_s, x, y))
         self.op_history.append(("change_delay", time.time() - t1))
 
     def statistic(self):
@@ -370,8 +383,10 @@ def test_kmb():
     terminals = util.random_s_with_number(number_of_nodes, 10)
 
     print(terminals)
-    Ts = relavence_matrix.KMB(g, list(terminals))
-    print(Ts)
+    Ts = relavence_matrix.KMB(g, list(terminals), weight='weight')
+    random_graph.print_graph(Ts)
+
+    # nx.single_source_dijkstra(g, 1, 100)
 
 
 if __name__ == '__main__':
