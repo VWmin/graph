@@ -25,13 +25,13 @@ class HLMR:
             self.routing_trees[s] = {}
             for r in self._src2recv[s]:
                 cost, path = self.hcp(s, r)
-                if cost == inf:
+                if not path:
                     self.routing_trees[s][r] = []
                     continue
                 if cost > self._delay_limit[s]:
                     # 计算s到其他节点的最短路
                     # 计算其他节点到r的最短路
-                    rp, minc = None, inf
+                    rp, minc = path, inf
                     n = len(path)
                     for i in range(n):
                         for j in range(i + 1, n):
@@ -42,6 +42,8 @@ class HLMR:
                     self.routing_trees[s][r] = rp
                 else:
                     self.routing_trees[s][r] = path
+                if not self.routing_trees[s][r]:
+                    print(123)
 
     def hcp(self, s, r):
         paths = {s: [s]}
@@ -58,9 +60,9 @@ class HLMR:
             if v == r:
                 break
             for u in self._g.neighbors(v):
-                _, ok = self._heat.check_bandwidth_limit(u, v)
-                if not ok:
-                    continue
+                # _, ok = self._heat.check_bandwidth_limit(u, v)
+                # if not ok:
+                #     continue
                 cost = self._heat.get_heat_degree_ij(s, u, v)
                 vu_dist = dist[v] + cost
                 if u not in seen or vu_dist < seen[u]:
@@ -75,6 +77,8 @@ class HLMR:
         t = 0
         for i in range(len(path) - 1):
             u, v = path[i], path[i + 1]
+            if u == v:
+                continue
             t += self._g[u][v]['weight']
         return t
 
@@ -82,6 +86,8 @@ class HLMR:
         t = 0
         for i in range(len(path) - 1):
             u, v = path[i], path[i + 1]
+            if u == v:
+                continue
             t += self._heat.get_heat_degree_ij(s, u, v)
         return t
 
