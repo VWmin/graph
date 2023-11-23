@@ -133,6 +133,9 @@ class HeatDegreeBase:
             self.op_history.append(("build_floyd_distance", time.time() - t1))
         return self.__distance__[u][v]
 
+    def statistic(self):
+        for op, t in self.op_history:
+            print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
 class HeatDegreeModel:
     def __init__(self, g: nx.graph, delay_limit, bandwidth_require, src2recv):
@@ -261,6 +264,8 @@ class HeatDegreeModel:
         self.op_history.append(("change_delay", time.time() - t1))
 
     def statistic(self):
+        print("mine statistic info >>> ")
+        self._heat_base.statistic()
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 

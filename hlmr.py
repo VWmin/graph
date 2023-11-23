@@ -106,6 +106,8 @@ class HLMR:
         return path[i: j + 1]
 
     def statistic(self):
+        print("hlmr statistic info >>> ")
+        self._heat.statistic()
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 

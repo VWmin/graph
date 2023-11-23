@@ -30,5 +30,35 @@ def test_ts_example():
     hlmr_instance.statistic()
 
 
+def test_with_random_graph():
+    number_of_nodes = 2000
+    prob_of_edge = 0.1
+    b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
+    b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
+    d_lo, d_hi = 1, 10
+    d_req_lo, d_req_hi = 50, 100
+
+    number_of_multicast_group = 10
+    number_of_group_member = 10
+
+    g = random_graph.random_graph(number_of_nodes, prob_of_edge, d_hi)
+    random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
+    S = util.random_s_with_number(number_of_nodes, number_of_multicast_group)
+    S2R = util.random_s2r_with_number(number_of_nodes, number_of_group_member, S)
+    B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
+    D = util.random_d_with_range(S, d_req_lo, d_req_hi)
+
+
+    print(S2R)
+
+    mine_instance = heat_degree_matrix.HeatDegreeModel(g, D, B, S2R)
+    mine_instance.statistic()
+
+    hlmr_instance = hlmr.HLMR(copy.deepcopy(g), D, B, S2R)
+    hlmr_instance.statistic()
+
+
 if __name__ == '__main__':
-    test_ts_example()
+    # test_ts_example()
+    test_with_random_graph()
+
