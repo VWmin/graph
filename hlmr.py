@@ -1,4 +1,5 @@
 import itertools
+import time
 
 import networkx as nx
 
@@ -16,11 +17,13 @@ class HLMR:
         self._bandwidth_require = bandwidth_require
         self._src2recv = s2r
         self.routing_trees = {}
+        self.op_history = []
         self._heat = heat_degree_matrix.HeatDegreeBase(self._g, self._delay_limit, self._bandwidth_require,
                                                        self._src2recv, self.routing_trees, False)
         self._routing()
 
     def _routing(self):
+        t = time.time()
         for s in self._src2recv:
             self.routing_trees[s] = {}
             for r in self._src2recv[s]:
@@ -42,8 +45,9 @@ class HLMR:
                     self.routing_trees[s][r] = rp
                 else:
                     self.routing_trees[s][r] = path
-                if not self.routing_trees[s][r]:
-                    print(123)
+                # if not self.routing_trees[s][r]:
+                #     print(123)
+        self.op_history.append(("routing", time.time() - t))
 
     def hcp(self, s, r):
         paths = {s: [s]}
@@ -100,6 +104,10 @@ class HLMR:
     @staticmethod
     def trim(path, i, j):
         return path[i: j + 1]
+
+    def statistic(self):
+        for op, t in self.op_history:
+            print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
 
 def test_hlmr():

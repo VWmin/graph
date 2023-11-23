@@ -24,10 +24,10 @@ def test_ts_example():
     print(S2R)
 
     mine_instance = heat_degree_matrix.HeatDegreeModel(g, D, B, S2R)
-    print(mine_instance.routing_trees)
+    mine_instance.statistic()
 
     hlmr_instance = hlmr.HLMR(copy.deepcopy(g), D, B, S2R)
-    print(hlmr_instance.routing_trees)
+    hlmr_instance.statistic()
 
 
 if __name__ == '__main__':
