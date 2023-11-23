@@ -52,3 +52,9 @@ def random_d_with_range(S, lo, hi):
     for s in S:
         D[s] = random.randint(lo, hi)
     return D
+
+def random_number_but_not_in(lo, hi, exclude):
+    t = random.randint(lo, hi)
+    while t in exclude:
+        t = random.randint(lo, hi)
+    return t
