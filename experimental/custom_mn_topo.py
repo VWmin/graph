@@ -5,8 +5,8 @@ import networkx as nx
 
 
 def gt_itm_example() -> nx.Graph:
-    filename = r"sample-graphs/ts/ts600/ts600-0.alt"
-    # filename = r"sample-graphs/ts/ts100/ts100-0.alt"
+    # filename = r"sample-graphs/ts/ts600/ts600-0.alt"
+    filename = r"sample-graphs/ts/ts100/ts100-0.alt"
     # filename = r"sample-graphs/rand/r10/r10-0.alt"
     g = nx.Graph()
     with open(filename, "r") as f:
