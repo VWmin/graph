@@ -55,34 +55,46 @@ def test_ts_example_with_random_op():
     hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
     hlmr_instance.statistic()
 
-    cnt = 10
-    for i in range(cnt):
-        print()
-        op_type = random.randint(0, 1)
-        if op_type == 1:
+    mine_times = [mine_instance.init_time()]
+    hlmr_times = [hlmr_instance.init_time()]
+
+    for i in range(5):
+        s = random.choice(S)
+        new_r = util.random_number_but_not_in(0, number_of_nodes - 1, S2R[s] | {s})
+        S2R[s].add(new_r)
+        print(f"turn {i + 1}, add new recv {new_r} to src {s}")
+
+        mine_instance.add_recv(s, new_r)
+        mine_instance.statistic()
+        mine_times.append(mine_instance.last_time())
+
+        hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
+        hlmr_instance.statistic()
+        hlmr_times.append(hlmr_instance.init_time())
+    for i in range(5):
+        s = random.choice(S)
+        while len(S2R[s]) == 0:
             s = random.choice(S)
-            new_r = util.random_number_but_not_in(0, number_of_nodes - 1, S2R[s] | {s})
-            S2R[s].add(new_r)
-            print(f"turn {i+1}, add new recv {new_r} to src {s}")
+        remove_r = random.choice(list(S2R[s]))
+        S2R[s].remove(remove_r)
+        print(f"turn {i + 1}, remove recv {remove_r} from src {s}")
 
-            mine_instance.add_recv(s, new_r)
-            mine_instance.statistic()
+        mine_instance.remove_recv(s, remove_r)
+        mine_instance.statistic()
+        mine_times.append(mine_instance.last_time())
 
-            hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
-            hlmr_instance.statistic()
-        else:
-            s = random.choice(S)
-            while len(S2R[s]) == 0:
-                s = random.choice(S)
-            remove_r = random.choice(list(S2R[s]))
-            S2R[s].remove(remove_r)
-            print(f"turn {i+1}, remove recv {remove_r} from src {s}")
+        hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
+        hlmr_instance.statistic()
+        hlmr_times.append(hlmr_instance.init_time())
 
-            mine_instance.remove_recv(s, remove_r)
-            mine_instance.statistic()
-
-            hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
-            hlmr_instance.statistic()
+    print(mine_times)
+    print(hlmr_times)
+    if len(hlmr_times) != len(mine_times):
+        return
+    import time
+    with open(f"group_op_test-{time.time()}", 'w') as f:
+        for i in range(len(mine_times)):
+            f.write(f"{mine_times[i]} {hlmr_times[i]}\n")
 
 
 

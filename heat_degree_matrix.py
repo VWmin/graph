@@ -137,6 +137,10 @@ class HeatDegreeBase:
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
+    def init_time(self):
+        return sum(map(lambda e: e[1], self.op_history))
+
+
 class HeatDegreeModel:
     def __init__(self, g: nx.graph, delay_limit, bandwidth_require, src2recv):
         self.g = g
@@ -268,6 +272,12 @@ class HeatDegreeModel:
         self._heat_base.statistic()
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
+
+    def init_time(self):
+        return self._heat_base.init_time() + self.last_time()
+
+    def last_time(self):
+        return self.op_history[-1][1]
 
 
 def print_2d_array(array):

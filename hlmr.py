@@ -111,6 +111,12 @@ class HLMR:
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
+    def init_time(self):
+        return self._heat.init_time() + self.last_time()
+
+    def last_time(self):
+        return self.op_history[-1][1]
+
 
 def test_hlmr():
     import random_graph
