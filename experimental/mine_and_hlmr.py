@@ -87,15 +87,29 @@ def test_ts_example_with_random_op():
         hlmr_instance.statistic()
         hlmr_times.append(hlmr_instance.init_time())
 
-    print(mine_times)
-    print(hlmr_times)
-    if len(hlmr_times) != len(mine_times):
-        return
+    return mine_times, hlmr_times
+
+
+def run_test_ts_example_with_random_op_multi_times():
+    init_tims, add_times, remove_times = [], [], []
+    for i in range(10):
+        mine_times, hlmr_times = test_ts_example_with_random_op()
+        init_tims.append((mine_times[0], hlmr_times[0]))
+        for j in range(1, 6):
+            add_times.append((mine_times[j], hlmr_times[j]))
+        for j in range(6, 11):
+            remove_times.append((mine_times[j], hlmr_times[j]))
     import time
     with open(f"group_op_test-{time.time()}", 'w') as f:
-        for i in range(len(mine_times)):
-            f.write(f"{mine_times[i]} {hlmr_times[i]}\n")
-
+        for t1, t2 in init_tims:
+            f.write(f"{t1} {t2}\n")
+        f.write("\n")
+        for t1, t2 in add_times:
+            f.write(f"{t1} {t2}\n")
+        f.write("\n")
+        for t1, t2 in remove_times:
+            f.write(f"{t1} {t2}\n")
+        f.write("\n")
 
 
 def test_with_random_graph():
@@ -128,4 +142,5 @@ def test_with_random_graph():
 if __name__ == '__main__':
     # test_ts_example()
     # test_with_random_graph()
-    test_ts_example_with_random_op()
+    run_test_ts_example_with_random_op_multi_times()
+
