@@ -1,6 +1,7 @@
 import copy
 import random
 
+import full_pll
 import hlmr
 import heat_degree_matrix
 import random_graph
@@ -93,6 +94,7 @@ def test_ts_example_with_random_op():
 def run_test_ts_example_with_random_op_multi_times():
     init_tims, add_times, remove_times = [], [], []
     for i in range(10):
+        print(f"--- test round {i} ---")
         mine_times, hlmr_times = test_ts_example_with_random_op()
         init_tims.append((mine_times[0], hlmr_times[0]))
         for j in range(1, 6):

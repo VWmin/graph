@@ -129,7 +129,7 @@ class HeatDegreeBase:
     def _distance_query(self, u, v):
         if self.__distance__ is None:
             t1 = time.time()
-            self.__distance__ = nx.floyd_warshall_numpy(self.g)
+            self.__distance__ = nx.floyd_warshall_numpy(self.g, nodelist=range(self.g.number_of_nodes()))
             self.op_history.append(("build_floyd_distance", time.time() - t1))
         return self.__distance__[u][v]
 
