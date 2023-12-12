@@ -262,17 +262,26 @@ class MULTIPATH_13(app_manager.RyuApp):
                 self.send_packet_out(datapath, msg, actions)
             elif ip_pkt.dst == '224.0.1.1':
                 self.logger.debug("dpid=%s recv multicast req", datapath.id)
-                path = nx.shortest_path(self.network, dpid, 7)
-                if len(path) == 1 and path[0] == dpid:
-                    self.logger.debug("arrived at %s", dpid)
-                    actions = [parser.OFPActionOutput(1)]
-                    self.send_packet_out(datapath, msg, actions)
-                elif len(path) > 1:
-                    next_node = path[1]
-                    if self.network.has_edge(dpid, next_node):
-                        self.logger.debug("next to %s", next_node)
-                        out_port = self.network[dpid][next_node]['dpid_to_port'][next_node]
-                        self.logger.debug("out port is %s", out_port)
-                        actions = [parser.OFPActionOutput(out_port)]
-                        self.send_packet_out(datapath, msg, actions)
 
+    def shortest_path_forward(self, datapath, msg, dst_dpid):
+        """
+        forwarding msg to single host by stp.
+        :param datapath: current sw
+        :param msg: msg to forward
+        :param dst_dpid: dst sw
+        """
+        dpid = datapath.id
+        parser = datapath.ofp_parser
+        path = nx.shortest_path(self.network, dpid, dst_dpid)
+        if len(path) == 1 and path[0] == dpid:
+            self.logger.debug("arrived at %s", dpid)
+            actions = [parser.OFPActionOutput(1)]
+            self.send_packet_out(datapath, msg, actions)
+        elif len(path) > 1:
+            next_node = path[1]
+            if self.network.has_edge(dpid, next_node):
+                self.logger.debug("next to %s", next_node)
+                out_port = self.network[dpid][next_node]['dpid_to_port'][next_node]
+                self.logger.debug("out port is %s", out_port)
+                actions = [parser.OFPActionOutput(out_port)]
+                self.send_packet_out(datapath, msg, actions)
