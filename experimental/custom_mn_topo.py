@@ -73,18 +73,26 @@ class MyTopo(Topo):
 
     def build(self):
         for n in self.graph.nodes:
-            s_name = f"s{n}"
-            h_name = f"h{n}"
-            self.addSwitch(s_name, stp=True, failMode='standalone')
+            s_name = f"s{n+1}"
+            h_name = f"h{n+1}"
+            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n+1))
             # Add single host on designated switches
             self.addHost(h_name)
             # directly add the link between hosts and their gateways
             self.addLink(s_name, h_name)
         # Connect your switches to each other as defined in networkx graph
         for (n1, n2) in self.graph.edges:
-            s_name_1, s_name_2 = f"s{n1}", f"s{n2}"
+            s_name_1, s_name_2 = f"s{n1+1}", f"s{n2+1}"
             self.addLink(s_name_1, s_name_2)
 
+
+def int_to_16bit_hex_string(number: int):
+    # 使用 hex 函数转换为十六进制字符串（带前缀 "0x"）
+    hex_string_with_prefix = hex(number)
+    # 去除前缀，并使用 upper 方法将字母转为大写
+    hex_string_without_prefix = hex_string_with_prefix[2:].upper()
+    hex_string_fixed_length = hex_string_without_prefix.zfill(16)
+    return hex_string_fixed_length
 
 # def construct_mininet_from_networkx(graph: nx.Graph):
 #     """ Builds the mininet from a networkx graph.
@@ -114,3 +122,4 @@ topos = {'mytopo': lambda: MyTopo(demo_graph())}
 # net.start()
 # net.pingAll()
 # net.stop()
+# print(int_to_16bit_hex_string(0))

@@ -53,8 +53,38 @@ def random_d_with_range(S, lo, hi):
         D[s] = random.randint(lo, hi)
     return D
 
+
 def random_number_but_not_in(lo, hi, exclude):
     t = random.randint(lo, hi)
     while t in exclude:
         t = random.randint(lo, hi)
     return t
+
+
+def random_s_from_graph(g: nx.Graph, number):
+    ret = set()
+    nodes = list(g.nodes)
+    while len(ret) != number:
+        t = random.choice(nodes)
+        if t == 0:
+            continue
+        ret.add(t)
+    return ret
+
+
+def random_s2r_from_graph(g: nx.Graph, number, src_set):
+    ret = {}
+    nodes = list(g.nodes)
+    for s in src_set:
+        ret[s] = set()
+        while len(ret[s]) != number:
+            t = random.choice(nodes)
+            if t == s or t == 0:
+                continue
+            ret[s].add(t)
+    return ret
+
+
+def add_attr_with_random_value(g, name, lo, hi):
+    for u, v in g.edges:
+        g[u][v][name] = random.randint(lo, hi)

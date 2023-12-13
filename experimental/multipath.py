@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import threading
 
 import networkx as nx
 from ryu.base import app_manager
@@ -27,11 +28,13 @@ from ryu.topology.api import get_link, get_all_link
 from ryu import utils
 from ryu.lib import hub
 
+import sys
 
-# import sys
-#
-# sys.path.append('/home/fwy/Desktop/graph')
-# import random_graph
+import heat_degree_matrix
+
+sys.path.append('/home/fwy/Desktop/graph')
+sys.path.append('/home/fwy/Desktop/graph/experimental')
+import util
 
 
 class MULTIPATH_13(app_manager.RyuApp):
@@ -48,14 +51,16 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.datapaths = {}
         # self.net = random_graph.demo_graph()
         self.network = nx.Graph()
+        self.network.add_node(0)  # dummy node
+        self.lock = threading.Lock()
         self.monitor_thread = hub.spawn(self._monitor)
+        self.experimental_thread = hub.spawn(self.run_experiment)
 
-    @set_ev_cls(
-        ofp_event.EventOFPErrorMsg,
-        [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
+    @set_ev_cls(ofp_event.EventOFPErrorMsg,
+                [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def error_msg_handler(self, ev):
         msg = ev.msg
-        self.logger.debug('OFPErrorMsg received: type=0x%02x code=0x%02x '
+        self.logger.error('OFPErrorMsg received: type=0x%02x code=0x%02x '
                           'message=%s', msg.type, msg.code,
                           utils.hex_array(msg.data))
 
@@ -85,9 +90,26 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.add_flow(datapath, 0, match, actions)
         self.logger.info("switch:%s connected", dpid)
 
+    def send_group_mod(self, datapath):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Hardcoding the stuff, as we already know the topology diagram.
+        # Group table1
+        # Receiver port2, forward it to port2 and Port3
+
+        actions1 = [parser.OFPActionOutput(2)]
+        actions2 = [parser.OFPActionOutput(3)]
+        buckets = [parser.OFPBucket(actions=actions1),
+                   parser.OFPBucket(actions=actions2)]
+        req = parser.OFPGroupMod(datapath, ofproto.OFPGC_ADD,
+                                 ofproto.OFPGT_ALL, 50, buckets)
+        datapath.send_msg(req)
+
     def _monitor(self):
         while True:
-            hub.sleep(10)
+            hub.sleep(5)
+            self.lock.acquire()
             link_list = get_all_link(self)
             for link in link_list:
                 u, v = link.src, link.dst
@@ -105,29 +127,7 @@ class MULTIPATH_13(app_manager.RyuApp):
                     # sw port -> connected sw dpid
                     self.network.nodes[u.dpid]['port_to_dpid'][u.port_no] = v.dpid
                     self.network.nodes[v.dpid]['port_to_dpid'][v.port_no] = u.dpid
-
-    # @set_ev_cls(event.EventSwitchEnter)
-    # def process_switch_enter(self, ev):
-    #     dpid = ev.switch.dp.id
-    #     link_list = get_all_link(self)
-    #     print(f"all link of {dpid} >>> ")
-    #     print(link_list)
-    #     links = list()
-    #     for link in link_list:
-    #         links.append((link.src.dpid, link.dst.dpid,
-    #                       {'port': link.src.port_no, link.src.dpid: link.src.port_no, link.dst.dpid: link.dst.port_no}))
-    #         links.append((link.dst.dpid, link.src.dpid,
-    #                       {'port': link.dst.port_no, link.src.dpid: link.src.port_no, link.dst.dpid: link.dst.port_no}))
-    #         print("links %s %s: " % (link.src.dpid, link.dst.dpid), link.src.port_no)
-    #
-    #         self.network.add_node(link.src.dpid, connected=dict())
-    #         self.network.add_node(link.dst.dpid, connected=dict())
-    #         # print self.network.nodes
-    #         self.network.nodes[link.src.dpid]['connected'][link.src.port_no] = link.dst.dpid
-    #         self.network.nodes[link.dst.dpid]['connected'][link.dst.port_no] = link.src.dpid
-    #
-    #     print("links: ", links)
-    #     self.network.add_edges_from(links)
+            self.lock.release()
 
     # def add_host(self, host_mac, inport, dpid):
     #     if host_mac not in self.network:
@@ -191,35 +191,6 @@ class MULTIPATH_13(app_manager.RyuApp):
 
         self.arp_flow_and_forward(datapath, msg, in_port, out_port, eth_pkt)
 
-    def send_group_mod(self, datapath, ):
-        """Do load balance"""
-
-        ofp = datapath.ofproto
-        ofp_parser = datapath.ofproto_parser
-
-        port_1 = 3
-        actions_1 = [ofp_parser.OFPActionOutput(port_1)]
-
-        port_2 = 2
-        actions_2 = [ofp_parser.OFPActionOutput(port_2)]
-
-        weight_1 = 50
-        weight_2 = 50
-
-        watch_port = ofproto_v1_3.OFPP_ANY
-        watch_group = ofproto_v1_3.OFPQ_ALL
-
-        buckets = [
-            ofp_parser.OFPBucket(weight_1, watch_port, watch_group, actions_1),
-            ofp_parser.OFPBucket(weight_2, watch_port, watch_group, actions_2)]
-
-        group_id = 50
-        req = ofp_parser.OFPGroupMod(
-            datapath, ofp.OFPFC_ADD,
-            ofp.OFPGT_SELECT, group_id, buckets)
-
-        datapath.send_msg(req)
-
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         # If you hit this you might want to increase
@@ -250,7 +221,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             ip_pkt = pkt.get_protocol(ipv4.ipv4)
             self.logger.info("dpid=%s processing %s --> %s", dpid, ip_pkt.src, ip_pkt.dst)
             if dpid not in self.mac_to_port:
-                self.logger.info("Dpid is not in mac_to_port")
+                self.logger.info("Dpid=%s is not in mac_to_port", dpid)
                 return
             if eth.dst in self.mac_to_port[dpid]:
                 # Normal flows
@@ -285,3 +256,86 @@ class MULTIPATH_13(app_manager.RyuApp):
                 self.logger.debug("out port is %s", out_port)
                 actions = [parser.OFPActionOutput(out_port)]
                 self.send_packet_out(datapath, msg, actions)
+
+    def run_experiment(self):
+        self.logger.info("enter experiment")
+        hub.sleep(30)
+
+        # datapath = self.datapaths[1]
+        # parser = datapath.ofproto_parser
+        # self.send_group_mod(datapath)
+        # actions = [parser.OFPActionGroup(group_id=50)]
+        # match = parser.OFPMatch(in_port=1)
+        # self.add_flow(datapath, 10, match, actions)
+        # self.logger.info("installed")
+
+        b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
+        b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
+        d_lo, d_hi = 1, 10
+        d_req_lo, d_req_hi = 50, 100
+
+        self.lock.acquire()
+        util.add_attr_with_random_value(self.network, "bandwidth", int(b_lo), int(b_hi))
+        util.add_attr_with_random_value(self.network, "weight", d_lo, d_hi)
+        S = util.random_s_from_graph(self.network, 1)
+        S2R = util.random_s2r_from_graph(self.network, 3, S)
+        B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
+        D = util.random_d_with_range(S, d_req_lo, d_req_hi)
+
+        mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, D, B, S2R)
+        mine_instance.statistic()
+        self.lock.release()
+
+        for root in mine_instance.routing_trees:
+            tree = mine_instance.routing_trees[root]
+
+            # install group table and flow entry for sw -> sw
+            self.install_routing_tree(tree, root, S2R[root])
+
+            # install flow entry for sw -> host
+            for recv in S2R[root]:
+                self.add_flow_to_connected_host(self.datapaths[recv])
+
+            # log info
+            graph_string = "\nDirected Graph:\n"
+            for edge in tree.edges():
+                graph_string += f"{edge[0]} -> {edge[1]};\n"
+            self.logger.info(f"the routing tree of {root} is {graph_string}")
+        self.logger.info(f"install group flow ok, s2r is {S2R}")
+
+    def install_routing_tree(self, tree, root, recvs):
+        datapath = self.datapaths[root]
+
+        succ = list(tree.successors(root))
+        group_id = 50 + root
+
+        if len(succ) > 0:
+            self.logger.info("installing group table and flow to %s", root)
+            out_ports = [self.network[root][e]['dpid_to_port'][e] for e in succ]
+            self.send_group_mod_flood(datapath, out_ports, group_id)
+            self.add_flow_to_group_table(datapath, group_id)
+
+            for node in succ:
+                self.install_routing_tree(tree, node, recvs)
+
+    @staticmethod
+    def send_group_mod_flood(datapath, out_ports, group_id):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        buckets = [parser.OFPBucket(actions=[parser.OFPActionOutput(out_port)]) for out_port in out_ports]
+        req = parser.OFPGroupMod(datapath, ofproto.OFPGC_ADD, ofproto.OFPGT_ALL, group_id, buckets)
+        datapath.send_msg(req)
+
+    def add_flow_to_group_table(self, datapath, group_id):
+        parser = datapath.ofproto_parser
+        # match = parse.OFPMatch(in_port=port,eth_type=0x0800, ip_proto=6, ipv4_dst=server_ip, tcp_src=tcp_pkt.src_port)
+        match = parser.OFPMatch(eth_type=0x800, ipv4_dst='224.0.1.1')
+        actions = [parser.OFPActionGroup(group_id=group_id)]
+        self.add_flow(datapath, 1, match, actions)
+
+    def add_flow_to_connected_host(self, datapath):
+        self.logger.info("installing sw to host flow to %s", datapath.id)
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch(eth_type=0x800, ipv4_dst='224.0.1.1')
+        actions = [parser.OFPActionOutput(1)]
+        self.add_flow(datapath, 1, match, actions)

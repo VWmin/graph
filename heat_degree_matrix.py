@@ -159,8 +159,11 @@ class HeatDegreeModel:
             # self.routing_trees[s] = {}
             # for r in self.src2recv[s]:
             #     self.__single_source_routing__(s, r)
-            self.routing_trees[s] = KMB(self.g, list(self.src2recv[s]) + [s],
-                                        weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+            ts = KMB(self.g, list(self.src2recv[s]) + [s],
+                     weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+            self.routing_trees[s] = nx.DiGraph()
+            convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
+
         self.op_history.append(("routing", time.time() - t1))
 
     # def __single_source_routing__(self, s, r):
@@ -394,19 +397,42 @@ def test_kmb():
     prob_of_edge = 0.1
     weight_range = 100
 
-    g = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
-    terminals = util.random_s_with_number(number_of_nodes, 10)
+    # g = random_graph.random_graph(number_of_nodes, prob_of_edge, weight_range)
+    g = random_graph.demo_graph()
+    # util.add_attr_with_random_value(g, "weight", 1, 100)
+    S = util.random_s_from_graph(g, 1)
+    S2R = util.random_s2r_from_graph(g, 3, S)
+    print(S2R)
+    for s in S:
+        Ts = relavence_matrix.KMB(g, list(S2R[s]) + [s], weight='weight')
+        # random_graph.print_graph(Ts)
 
-    print(terminals)
-    Ts = relavence_matrix.KMB(g, list(terminals), weight='weight')
-    random_graph.print_graph(Ts)
+        # convert to directed graph
+        tree = nx.DiGraph()
+        convert_routing_tree_to_digraph(Ts, tree, s, None)
 
-    # nx.single_source_dijkstra(g, 1, 100)
+
+def convert_routing_tree_to_digraph(ts: nx.Graph, tree: nx.DiGraph, root, pre):
+    while root:
+        tree.add_node(root)
+        if pre:
+            tree.add_edge(pre, root)
+        if ts.degree(root) == 1:
+            _next = next(ts.neighbors(root))
+            if _next == pre:
+                break
+            pre = root
+            root = _next
+        else:
+            for _next in ts.neighbors(root):
+                if _next != pre:
+                    convert_routing_tree_to_digraph(ts, tree, _next, root)
+            break
 
 
 if __name__ == '__main__':
     # test_model()
     # test_member_change()
     # test_heat_matrix_based_routing()
-    test_edge_change()
-    # test_kmb()
+    # test_edge_change()
+    test_kmb()

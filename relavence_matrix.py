@@ -318,4 +318,14 @@ def test_relaven_run_time():
 
 
 if __name__ == "__main__":
-    test_relaven_run_time()
+    # test_relaven_run_time()
+    import networkx as nx
+    import matplotlib.pyplot as plt
+
+    # 创建一个有向图
+    G = nx.DiGraph()
+    G.add_edges_from([(1, 2), (1, 3), (2, 4), (3, 4), (4, 5)])
+
+    t = map(lambda e: e*2, list(G.successors(1)))
+    print(list(t))
+
