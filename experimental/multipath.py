@@ -13,18 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import math
 import threading
+import time
 
 import networkx as nx
 from ryu.base import app_manager
+from ryu.base.app_manager import lookup_service_brick
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, HANDSHAKE_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4
+from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
 from ryu.topology import event, switches
 from ryu.topology.api import get_link, get_all_link
+from ryu.topology.switches import LLDPPacket
+
 from ryu import utils
 from ryu.lib import hub
 
@@ -49,10 +54,13 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.arp_received = {}
         self.arp_port = {}
         self.datapaths = {}
+        self.echo_delay = {}
+        self.link_delay = {}
         # self.net = random_graph.demo_graph()
         self.network = nx.Graph()
         self.network.add_node(0)  # dummy node
         self.lock = threading.Lock()
+        self.switch_service = lookup_service_brick("switches")
         self.monitor_thread = hub.spawn(self._monitor)
         self.experimental_thread = hub.spawn(self.run_experiment)
 
@@ -60,9 +68,7 @@ class MULTIPATH_13(app_manager.RyuApp):
                 [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def error_msg_handler(self, ev):
         msg = ev.msg
-        self.logger.error('OFPErrorMsg received: type=0x%02x code=0x%02x '
-                          'message=%s', msg.type, msg.code,
-                          utils.hex_array(msg.data))
+        self.logger.error('OFPErrorMsg received: type=0x%02x code=0x%02x ', msg.type, msg.code)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -90,6 +96,26 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.add_flow(datapath, 0, match, actions)
         self.logger.info("switch:%s connected", dpid)
 
+    def send_echo_request(self):
+        for _, datapath in self.datapaths.items():
+            parser = datapath.ofproto_parser
+            echo = parser.OFPEchoRequest(datapath, data=bytes("%.12f" % time.time(), encoding="utf-8"))
+            datapath.send_msg(echo)
+            # interval 0.5s between datapaths
+            hub.sleep(0.5)
+
+    @set_ev_cls(ofp_event.EventOFPEchoReply, [MAIN_DISPATCHER, CONFIG_DISPATCHER, HANDSHAKE_DISPATCHER])
+    def echo_reply_handler(self, ev):
+        now_time = time.time()
+        dpid = ev.msg.datapath.id
+        try:
+            echo_delay = now_time - eval(ev.msg.data)
+            # save datapath delay
+            self.echo_delay[dpid] = echo_delay
+            self.logger.debug("controller to dpid(%s) echo delay is %s", dpid, echo_delay)
+        except ValueError as error:
+            self.logger.warn("failed to get echo delay to dpid(%s), error: %s", dpid, error)
+
     def send_group_mod(self, datapath):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -109,6 +135,7 @@ class MULTIPATH_13(app_manager.RyuApp):
     def _monitor(self):
         while True:
             hub.sleep(5)
+            self.send_echo_request()
             self.lock.acquire()
             link_list = get_all_link(self)
             for link in link_list:
@@ -127,6 +154,13 @@ class MULTIPATH_13(app_manager.RyuApp):
                     # sw port -> connected sw dpid
                     self.network.nodes[u.dpid]['port_to_dpid'][u.port_no] = v.dpid
                     self.network.nodes[v.dpid]['port_to_dpid'][v.port_no] = u.dpid
+                else:
+                    if len(self.link_delay) > 0:
+                        link = (u.dpid, v.dpid)
+                        delay = self.link_delay.get(link, -1)
+                        if delay <= 0:
+                            delay = sum(self.link_delay.values()) / len(self.link_delay)
+                        self.network.edges[link]["weight"] = delay
             self.lock.release()
 
     # def add_host(self, host_mac, inport, dpid):
@@ -207,9 +241,34 @@ class MULTIPATH_13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
 
-        if eth.ethertype == ether_types.ETH_TYPE_IPV6 or \
-                eth.ethertype == ether_types.ETH_TYPE_LLDP:
+        if eth.ethertype == ether_types.ETH_TYPE_IPV6:
             return
+        elif eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            """
+                     c0
+                   a    b 
+                 s1   c  s2
+                 T1 = a+c+b; LLDP c0->s1->s2->c0
+                 T2 = b+c+a; LLDP c0->s2->s1->c0
+                 Ta = 2a;    echo c0->s1->c0
+                 Tb = 2b;    echo c0->s2->c0
+                 avg link delay s1-s2 = (T1+T2-Ta-Tb)/2 or T1-(Ta+Tb)/2 or T2-(Ta+Tb)/2
+            """
+            try:
+                src_dpid, src_outport = LLDPPacket.lldp_parse(msg.data)
+                dst_dpid, dst_inport = dpid, in_port
+                for port in self.switch_service.ports:
+                    if src_dpid == port.dpid and src_outport == port.port_no:
+                        send_time = self.switch_service.ports[port].timestamp
+                        if send_time is None:
+                            return
+                        t = time.time() - send_time
+                        c = t - (self.echo_delay[src_dpid] + self.echo_delay[dst_dpid]) / 2
+                        self.link_delay[(src_dpid, dst_dpid)] = c
+                        self.logger.debug(f"link delay {src_dpid} <---> {dst_dpid} is {c}")
+                        break
+            except KeyError:
+                return
 
         elif eth.ethertype == ether_types.ETH_TYPE_ARP:
             self.logger.debug("ARP processing")
@@ -273,6 +332,9 @@ class MULTIPATH_13(app_manager.RyuApp):
         b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
         d_lo, d_hi = 1, 10
         d_req_lo, d_req_hi = 50, 100
+
+        # for edge in self.network.edges:
+        #     print(self.network.edges[edge]['weight'])
 
         self.lock.acquire()
         util.add_attr_with_random_value(self.network, "bandwidth", int(b_lo), int(b_hi))
