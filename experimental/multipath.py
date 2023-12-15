@@ -354,10 +354,6 @@ class MULTIPATH_13(app_manager.RyuApp):
             # install group table and flow entry for sw -> sw
             self.install_routing_tree(tree, root, S2R[root])
 
-            # install flow entry for sw -> host
-            for recv in S2R[root]:
-                self.add_flow_to_connected_host(self.datapaths[recv])
-
             # log info
             graph_string = "\nDirected Graph:\n"
             for edge in tree.edges():
@@ -374,11 +370,15 @@ class MULTIPATH_13(app_manager.RyuApp):
         if len(succ) > 0:
             self.logger.info("installing group table and flow to %s", root)
             out_ports = [self.network[root][e]['dpid_to_port'][e] for e in succ]
+            if root in recvs:
+                out_ports.append(1)
             self.send_group_mod_flood(datapath, out_ports, group_id)
             self.add_flow_to_group_table(datapath, group_id)
 
             for node in succ:
                 self.install_routing_tree(tree, node, recvs)
+        elif len(succ) == 0 and root in recvs:
+            self.add_flow_to_connected_host(datapath)
 
     @staticmethod
     def send_group_mod_flood(datapath, out_ports, group_id):
