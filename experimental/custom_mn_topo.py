@@ -1,6 +1,10 @@
+import subprocess
+import time
+
 import numpy as np
+from mininet.cli import CLI
 from mininet.net import Mininet
-from mininet.node import OVSController
+from mininet.node import OVSController, RemoteController
 from mininet.topo import Topo
 import networkx as nx
 
@@ -73,16 +77,16 @@ class MyTopo(Topo):
 
     def build(self):
         for n in self.graph.nodes:
-            s_name = f"s{n+1}"
-            h_name = f"h{n+1}"
-            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n+1))
+            s_name = f"s{n + 1}"
+            h_name = f"h{n + 1}"
+            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n + 1))
             # Add single host on designated switches
             self.addHost(h_name)
             # directly add the link between hosts and their gateways
             self.addLink(s_name, h_name)
         # Connect your switches to each other as defined in networkx graph
         for (n1, n2) in self.graph.edges:
-            s_name_1, s_name_2 = f"s{n1+1}", f"s{n2+1}"
+            s_name_1, s_name_2 = f"s{n1 + 1}", f"s{n2 + 1}"
             self.addLink(s_name_1, s_name_2)
 
 
@@ -94,32 +98,43 @@ def int_to_16bit_hex_string(number: int):
     hex_string_fixed_length = hex_string_without_prefix.zfill(16)
     return hex_string_fixed_length
 
-# def construct_mininet_from_networkx(graph: nx.Graph):
-#     """ Builds the mininet from a networkx graph.
-#
-#     :param graph: The networkx graph describing the network
-#     :return: net: the constructed 'Mininet' object
-#     """
-#     net = Mininet(controller=OVSController)
-#     # Construct mininet
-#     for n in graph.nodes:
-#         s_name = f"s{n}"
-#         h_name = f"h{n}"
-#         net.addSwitch(s_name, stp=True, failMode='standalone')
-#         # Add single host on designated switches
-#         net.addHost(h_name)
-#         # directly add the link between hosts and their gateways
-#         net.addLink(s_name, h_name)
-#     # Connect your switches to each other as defined in networkx graph
-#     for (n1, n2) in graph.edges:
-#         s_name_1, s_name_2 = f"s{n1}", f"s{n2}"
-#         net.addLink(s_name_1, s_name_2)
-#     return net
+
+def run_command_async(host, command):
+    # 异步运行命令
+    return host.popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-topos = {'mytopo': lambda: MyTopo(demo_graph())}
-# net = construct_mininet_from_networkx(gt_itm_example())
-# net.start()
-# net.pingAll()
-# net.stop()
-# print(int_to_16bit_hex_string(0))
+def run_mn_net():
+    graph = demo_graph()
+    custom_topo = MyTopo(graph)
+    controller = RemoteController('c0')
+    net = Mininet(topo=custom_topo, controller=controller)
+    net.start()
+
+    host1, host2 = net.getNodeByName('h1'), net.getNodeByName('h2')
+    t1 = time.time()
+
+    # 异步运行命令
+    # process_host1 = run_command_async(host1, './send')
+    # process_host2 = run_command_async(host2, './send')
+
+    # # block until finished
+    # output_host1, error_host1 = process_host1.communicate()
+    # output_host2, error_host2 = process_host2.communicate()
+    #
+    # # 打印输出和错误
+    # print(f"Command output on h1: {output_host1}")
+    # print(f"Command error on h1: {error_host1}")
+    # print(f"Command output on h2: {output_host2}")
+    # print(f"Command error on h2: {error_host2}")
+    # print(time.time() - t1)
+
+    CLI(net)
+    net.stop()
+
+
+# topos = {'mytopo': lambda: MyTopo(demo_graph())}
+
+
+if __name__ == '__main__':
+    run_mn_net()
