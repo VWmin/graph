@@ -348,11 +348,14 @@ class MULTIPATH_13(app_manager.RyuApp):
         mine_instance.statistic()
         self.lock.release()
 
+        group_no = 1
         for root in mine_instance.routing_trees:
+            multicast_ip = f'224.0.1.{group_no}'
+            group_no += 1
             tree = mine_instance.routing_trees[root]
 
             # install group table and flow entry for sw -> sw
-            self.install_routing_tree(tree, root, S2R[root])
+            self.install_routing_tree(tree, root, S2R[root], multicast_ip)
 
             # log info
             graph_string = "\nDirected Graph:\n"
@@ -361,7 +364,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.logger.info(f"the routing tree of {root} is {graph_string}")
         self.logger.info(f"install group flow ok, s2r is {S2R}")
 
-    def install_routing_tree(self, tree, root, recvs):
+    def install_routing_tree(self, tree, root, recvs, multicast_ip):
         datapath = self.datapaths[root]
 
         succ = list(tree.successors(root))
@@ -373,12 +376,12 @@ class MULTIPATH_13(app_manager.RyuApp):
             if root in recvs:
                 out_ports.append(1)
             self.send_group_mod_flood(datapath, out_ports, group_id)
-            self.add_flow_to_group_table(datapath, group_id)
+            self.add_flow_to_group_table(datapath, group_id, multicast_ip)
 
             for node in succ:
-                self.install_routing_tree(tree, node, recvs)
+                self.install_routing_tree(tree, node, recvs, multicast_ip)
         elif len(succ) == 0 and root in recvs:
-            self.add_flow_to_connected_host(datapath)
+            self.add_flow_to_connected_host(datapath, multicast_ip)
 
     @staticmethod
     def send_group_mod_flood(datapath, out_ports, group_id):
@@ -388,16 +391,16 @@ class MULTIPATH_13(app_manager.RyuApp):
         req = parser.OFPGroupMod(datapath, ofproto.OFPGC_ADD, ofproto.OFPGT_ALL, group_id, buckets)
         datapath.send_msg(req)
 
-    def add_flow_to_group_table(self, datapath, group_id):
+    def add_flow_to_group_table(self, datapath, group_id, multicast_ip):
         parser = datapath.ofproto_parser
         # match = parse.OFPMatch(in_port=port,eth_type=0x0800, ip_proto=6, ipv4_dst=server_ip, tcp_src=tcp_pkt.src_port)
-        match = parser.OFPMatch(eth_type=0x800, ipv4_dst='224.0.1.1')
+        match = parser.OFPMatch(eth_type=0x800, ipv4_dst=multicast_ip)
         actions = [parser.OFPActionGroup(group_id=group_id)]
         self.add_flow(datapath, 1, match, actions)
 
-    def add_flow_to_connected_host(self, datapath):
+    def add_flow_to_connected_host(self, datapath, multicast_ip):
         self.logger.info("installing sw to host flow to %s", datapath.id)
         parser = datapath.ofproto_parser
-        match = parser.OFPMatch(eth_type=0x800, ipv4_dst='224.0.1.1')
+        match = parser.OFPMatch(eth_type=0x800, ipv4_dst=multicast_ip)
         actions = [parser.OFPActionOutput(1)]
         self.add_flow(datapath, 1, match, actions)
