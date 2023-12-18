@@ -2,7 +2,6 @@ import socket
 import pickle
 import networkx as nx
 
-import random_graph
 
 
 def run_server(graph: nx.Graph):
@@ -23,7 +22,21 @@ def run_server(graph: nx.Graph):
     # server.close()
 
 
+def acquire_graph():
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(('127.0.0.1', 8888))
+    data, buffer_size = b"", 4096
+    while True:
+        chunk = client.recv(buffer_size)
+        if not chunk:
+            break
+        data += chunk
+    # id starts from 0.
+    graph = pickle.loads(data)
+    client.close()
+    return graph
+
+
 if __name__ == "__main__":
-    graph = random_graph.demo_graph()
-    print(graph)
-    run_server(graph)
+    import random_graph
+    run_server(random_graph.demo_graph())

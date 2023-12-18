@@ -1,73 +1,12 @@
 import subprocess
-import time
 
-import numpy as np
 from mininet.cli import CLI
 from mininet.net import Mininet
-from mininet.node import OVSController, RemoteController
+from mininet.node import RemoteController
 from mininet.topo import Topo
 import networkx as nx
 
-
-def gt_itm_example() -> nx.Graph:
-    # filename = r"sample-graphs/ts/ts600/ts600-0.alt"
-    filename = r"sample-graphs/ts/ts100/ts100-0.alt"
-    # filename = r"sample-graphs/rand/r10/r10-0.alt"
-    g = nx.Graph()
-    with open(filename, "r") as f:
-        flag = False
-        for line in f.readlines():
-            if not flag and line.startswith("EDGES"):
-                flag = True
-            elif flag:
-                arr = line.split(' ')[:2]
-                g.add_edge(int(arr[0]), int(arr[1]))
-    return g
-
-
-def as_733_example():
-    filename = r"C:\Users\user\Downloads\as-733\as19971109.txt"
-    g = nx.Graph()
-    with open(filename, "r") as f:
-        flag = False
-        for line in f.readlines():
-            if not flag and line.startswith("# FromNodeId	ToNodeId"):
-                flag = True
-            elif flag:
-                arr = line.split('\t')[:2]
-                arr[1] = arr[1][:-1]
-                g.add_edge(arr[0], arr[1])
-
-
-def demo_graph():
-    # G = nx.Graph()  # 创建无向图
-    # G.add_edge(0, 1, weight=39)
-    # G.add_edge(0, 2, weight=33)
-    # G.add_edge(0, 3, weight=15)
-    # G.add_edge(1, 3, weight=21)
-    # G.add_edge(1, 6, weight=46)
-    # G.add_edge(2, 4, weight=23)
-    # G.add_edge(3, 4, weight=40)
-    # G.add_edge(3, 5, weight=18)
-    # G.add_edge(3, 6, weight=71)
-    # G.add_edge(4, 7, weight=29)
-    # G.add_edge(5, 7, weight=25)
-    # G.add_edge(5, 8, weight=25)
-    # G.add_edge(6, 8, weight=20)
-    # G.add_edge(7, 8, weight=45)
-    A = np.array([
-        [0, 39, 33, 15, 0, 0, 0, 0, 0],
-        [39, 0, 0, 21, 0, 0, 46, 0, 0],
-        [33, 0, 0, 0, 23, 0, 0, 0, 0],
-        [15, 21, 0, 0, 40, 18, 71, 0, 0],
-        [0, 0, 23, 40, 0, 0, 0, 29, 0],
-        [0, 0, 0, 18, 0, 0, 0, 25, 25],
-        [0, 46, 0, 71, 0, 0, 0, 0, 20],
-        [0, 0, 0, 0, 29, 25, 0, 0, 45],
-        [0, 0, 0, 0, 0, 25, 20, 45, 0],
-    ])
-    G = nx.from_numpy_array(A)
-    return G
+import experiment_ev
 
 
 class MyTopo(Topo):
@@ -105,7 +44,7 @@ def run_command_async(host, command):
 
 
 def run_mn_net():
-    graph = demo_graph()
+    graph = experiment_ev.acquire_graph()
     custom_topo = MyTopo(graph)
     controller = RemoteController('c0')
     net = Mininet(topo=custom_topo, controller=controller)

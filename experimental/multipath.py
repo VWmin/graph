@@ -37,6 +37,7 @@ from ryu.lib import hub
 
 import sys
 
+import experimental.experiment_ev
 import heat_degree_matrix
 
 sys.path.append('/home/fwy/Desktop/graph')
@@ -347,23 +348,10 @@ class MULTIPATH_13(app_manager.RyuApp):
 
     @staticmethod
     def acquire_graph():
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect(('127.0.0.1', 8888))
-        data, buffer_size = b"", 4096
-        while True:
-            chunk = client.recv(buffer_size)
-            if not chunk:
-                break
-            data += chunk
-        # id starts from 0.
-        graph = pickle.loads(data)
-        if not isinstance(graph, nx.Graph):
-            print("failed to load graph, exit.")
-            exit(0)
+        graph = experimental.experiment_ev.acquire_graph()
         renumbered = nx.Graph()
         for edge in graph.edges:
             renumbered.add_edge(edge[0] + 1, edge[1] + 1)
-        client.close()
         return renumbered
 
     def run_experiment(self):
