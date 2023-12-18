@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 import math
+import pickle
+import socket
 import threading
 import time
 
@@ -56,12 +58,13 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.datapaths = {}
         self.echo_delay = {}
         self.link_delay = {}
-        # self.net = random_graph.demo_graph()
-        self.network = nx.Graph()
+        self.network = self.acquire_graph()
         self.network.add_node(0)  # dummy node
         self.lock = threading.Lock()
         self.switch_service = lookup_service_brick("switches")
-        self.monitor_thread = hub.spawn(self._monitor)
+        # self.monitor_thread = hub.spawn(self._monitor)
+        self.echo_thread = hub.spawn(self.run_echo)
+        # self.server_thread = hub.spawn(self.run_server)
         self.experimental_thread = hub.spawn(self.run_experiment)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg,
@@ -95,6 +98,15 @@ class MULTIPATH_13(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.add_flow(datapath, 0, match, actions)
         self.logger.info("switch:%s connected", dpid)
+
+    def run_echo(self):
+        while True:
+            hub.sleep(10)
+            connected_sw = len(self.datapaths)
+            if connected_sw == 0 or len(self.echo_delay) == connected_sw:
+                continue
+            self.logger.info("sending echo request to switches...")
+            self.send_echo_request()
 
     def send_echo_request(self):
         for _, datapath in self.datapaths.items():
@@ -135,7 +147,6 @@ class MULTIPATH_13(app_manager.RyuApp):
     def _monitor(self):
         while True:
             hub.sleep(5)
-            self.send_echo_request()
             self.lock.acquire()
             link_list = get_all_link(self)
             for link in link_list:
@@ -257,6 +268,18 @@ class MULTIPATH_13(app_manager.RyuApp):
             try:
                 src_dpid, src_outport = LLDPPacket.lldp_parse(msg.data)
                 dst_dpid, dst_inport = dpid, in_port
+
+                # record dpid in which port
+                self.network.edges[(src_dpid, dst_dpid)].setdefault("dpid_to_port", {
+                    src_dpid: dst_inport,
+                    dst_dpid: src_outport
+                })
+                # if self.network.edges[(src_dpid, dst_dpid)]["dpid_to_port"] is None:
+                #     self.network.edges[(src_dpid, dst_dpid)]["dpid_to_port"] = {
+                #         src_dpid: dst_inport,
+                #         dst_dpid: src_outport
+                #     }
+
                 for port in self.switch_service.ports:
                     if src_dpid == port.dpid and src_outport == port.port_no:
                         send_time = self.switch_service.ports[port].timestamp
@@ -264,7 +287,13 @@ class MULTIPATH_13(app_manager.RyuApp):
                             return
                         t = time.time() - send_time
                         c = t - (self.echo_delay[src_dpid] + self.echo_delay[dst_dpid]) / 2
+                        if c <= 0:
+                            # will it really happen?
+                            return
                         self.link_delay[(src_dpid, dst_dpid)] = c
+                        # update link weight
+                        self.network.edges[(src_dpid, dst_dpid)]["weight"] = c
+                        # update
                         self.logger.debug(f"link delay {src_dpid} <---> {dst_dpid} is {c}")
                         break
             except KeyError:
@@ -315,6 +344,27 @@ class MULTIPATH_13(app_manager.RyuApp):
                 self.logger.debug("out port is %s", out_port)
                 actions = [parser.OFPActionOutput(out_port)]
                 self.send_packet_out(datapath, msg, actions)
+
+    @staticmethod
+    def acquire_graph():
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(('127.0.0.1', 8888))
+        data, buffer_size = b"", 4096
+        while True:
+            chunk = client.recv(buffer_size)
+            if not chunk:
+                break
+            data += chunk
+        # id starts from 0.
+        graph = pickle.loads(data)
+        if not isinstance(graph, nx.Graph):
+            print("failed to load graph, exit.")
+            exit(0)
+        renumbered = nx.Graph()
+        for edge in graph.edges:
+            renumbered.add_edge(edge[0] + 1, edge[1] + 1)
+        client.close()
+        return renumbered
 
     def run_experiment(self):
         self.logger.info("enter experiment")

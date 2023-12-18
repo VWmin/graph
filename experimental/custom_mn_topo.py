@@ -111,8 +111,8 @@ def run_mn_net():
     net = Mininet(topo=custom_topo, controller=controller)
     net.start()
 
-    host1, host2 = net.getNodeByName('h1'), net.getNodeByName('h2')
-    t1 = time.time()
+    # host1, host2 = net.getNodeByName('h1'), net.getNodeByName('h2')
+    # t1 = time.time()
 
     # 异步运行命令
     # process_host1 = run_command_async(host1, './send')
