@@ -5,10 +5,11 @@ using namespace Tins;
 #include <iostream>
 #include <fstream>
 
-static std::ofstream f{"record.log"};
 
 class Consumer {
+const std::string dev_name;
 public:
+    Consumer(const std::string& dev_name):dev_name(dev_name){}
     bool operator()(Packet& packet) {
         std::cout << "pcaket.....\n";
         std::string ip_record = "";
@@ -35,6 +36,7 @@ public:
             std::cout << "now: " << now << " ";
             std::cout << "dif: " << dif << " ms ";
             if (!ip_record.empty()) {
+                static std::ofstream f{"record-"+this->dev_name};
                 std::cout << "write to file" << "\n";
                 std::cout << "ip： " << ip_record << "\n";
                 std::cout.flush();
@@ -87,5 +89,5 @@ int main() {
                << "start sniffing....\n";
     Sniffer sniffer(dev.name(), config);
 
-    sniffer.sniff_loop(Consumer(), 0);
+    sniffer.sniff_loop(Consumer(dev.name()), 0);
 }
