@@ -24,12 +24,13 @@ class HLMR:
 
     def _routing(self):
         t = time.time()
+        tmp_trees = {}
         for s in self._src2recv:
-            self.routing_trees[s] = {}
+            tmp_trees[s] = {}
             for r in self._src2recv[s]:
                 cost, path = self.hcp(s, r)
                 if not path:
-                    self.routing_trees[s][r] = []
+                    tmp_trees[s][r] = []
                     continue
                 if cost > self._delay_limit[s]:
                     # 计算s到其他节点的最短路
@@ -42,12 +43,18 @@ class HLMR:
                             tmp_cost = self.d(tmp_path)
                             if tmp_cost <= self._delay_limit[s] and self.hd(s, tmp_path) < minc:
                                 rp, minc = tmp_path, tmp_cost
-                    self.routing_trees[s][r] = rp
+                    tmp_trees[s][r] = rp
                 else:
-                    self.routing_trees[s][r] = path
-                # if not self.routing_trees[s][r]:
-                #     print(123)
+                    tmp_trees[s][r] = path
         self.op_history.append(("routing", time.time() - t))
+
+        for s in self._src2recv:
+            self.routing_trees[s] = nx.DiGraph()
+            for r in self._src2recv[s]:
+                path = tmp_trees[s][r]
+                for i in range(len(path) - 1):
+                    u, v = path[i], path[i + 1]
+                    self.routing_trees[s].add_edge(u, v)
 
     def hcp(self, s, r):
         paths = {s: [s]}
@@ -127,7 +134,8 @@ def test_hlmr():
     delay_limit = {1: 200}
     bandwidth_require = {1: 50}
     instance = HLMR(g, delay_limit, bandwidth_require, s2r)
-    print(instance.routing_trees)
+    for tree in instance.routing_trees.values():
+        random_graph.print_graph(tree)
 
 
 if __name__ == '__main__':
