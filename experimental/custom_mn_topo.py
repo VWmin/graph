@@ -1,4 +1,8 @@
+import signal
+import socket
 import subprocess
+import sys
+import threading
 
 from mininet.cli import CLI
 from mininet.net import Mininet
@@ -8,6 +12,15 @@ import networkx as nx
 
 import experiment_ev
 from experiment_info import ExperimentInfo
+
+
+def int_to_16bit_hex_string(number: int):
+    # 使用 hex 函数转换为十六进制字符串（带前缀 "0x"）
+    hex_string_with_prefix = hex(number)
+    # 去除前缀，并使用 upper 方法将字母转为大写
+    hex_string_without_prefix = hex_string_with_prefix[2:].upper()
+    hex_string_fixed_length = hex_string_without_prefix.zfill(16)
+    return hex_string_fixed_length
 
 
 class MyTopo(Topo):
@@ -30,48 +43,73 @@ class MyTopo(Topo):
             self.addLink(s_name_1, s_name_2)
 
 
-def int_to_16bit_hex_string(number: int):
-    # 使用 hex 函数转换为十六进制字符串（带前缀 "0x"）
-    hex_string_with_prefix = hex(number)
-    # 去除前缀，并使用 upper 方法将字母转为大写
-    hex_string_without_prefix = hex_string_with_prefix[2:].upper()
-    hex_string_fixed_length = hex_string_without_prefix.zfill(16)
-    return hex_string_fixed_length
+class MininetEnv:
+    def __init__(self):
+        self.finished = False
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.info = experiment_ev.acquire_info()
+        custom_topo = MyTopo(self.info.graph)
+        controller = RemoteController('c0')
+        self.net = Mininet(topo=custom_topo, controller=controller)
 
+        signal.signal(signal.SIGINT, self.signal_handler)
 
-def run_command_async(host, command):
-    # 异步运行命令
-    return host.popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def signal_handler(self, sig, frame):
+        print("Received signal to exit.")
+        self.server.close()
+        if self.net is not None:
+            self.net.stop()
+        sys.exit(0)
 
+    def start(self):
+        self.net.start()
 
-def run_mn_net():
-    info: ExperimentInfo = experiment_ev.acquire_info()
-    custom_topo = MyTopo(info.graph)
-    controller = RemoteController('c0')
-    net = Mininet(topo=custom_topo, controller=controller)
-    net.start()
+        cli_thread = threading.Thread(target=self.run_mn_cli)
+        cmd_thread = threading.Thread(target=self.run_mn_cmd_server)
 
-    # host1, host2 = net.getNodeByName('h1'), net.getNodeByName('h2')
-    # t1 = time.time()
+        cli_thread.start()
+        cmd_thread.start()
 
-    # 异步运行命令
-    # process_host1 = run_command_async(host1, './send')
-    # process_host2 = run_command_async(host2, './send')
+        cli_thread.join()
+        cmd_thread.join()
 
-    # # block until finished
-    # output_host1, error_host1 = process_host1.communicate()
-    # output_host2, error_host2 = process_host2.communicate()
-    #
-    # # 打印输出和错误
-    # print(f"Command output on h1: {output_host1}")
-    # print(f"Command error on h1: {error_host1}")
-    # print(f"Command output on h2: {output_host2}")
-    # print(f"Command error on h2: {error_host2}")
-    # print(time.time() - t1)
+        self.net.stop()
 
-    CLI(net)
-    net.stop()
+    @staticmethod
+    def run_command_async(host, command):
+        # 异步运行命令
+        return host.popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def run_mn_cli(self):
+        CLI(self.net)
+        self.finished = True
+
+    def run_mn_cmd_server(self):
+        self.server.bind(('127.0.0.1', 8889))
+        self.server.listen(1)
+
+        connection, address = self.server.accept()
+        raw_msg = connection.recv(1024)
+        msg = raw_msg.decode()
+        if msg and msg == "ok":
+            self.run_script()
+        connection.close()
+
+        self.server.close()
+
+    def run_script(self):
+        print("\nstarting script")
+        for s in self.info.S2R:
+            for r in self.info.S2R[s]:
+                self.run_script_on_host(f"h{r}", "./recv")
+            self.run_script_on_host(f"h{s}", "./send")
+
+    def run_script_on_host(self, hostname, cmd):
+        host = self.net.getNodeByName(hostname)
+        self.run_command_async(host, cmd)
+        print(f"{hostname} {cmd}")
 
 
 if __name__ == '__main__':
-    run_mn_net()
+    ev = MininetEnv()
+    ev.start()

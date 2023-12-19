@@ -328,7 +328,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.lock.acquire()
         mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
                                                            self.experiment_info.B, self.experiment_info.S2R)
-        mine_instance.statistic()
+        # mine_instance.statistic()
         self.lock.release()
 
         group_no = 1
@@ -346,6 +346,8 @@ class MULTIPATH_13(app_manager.RyuApp):
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
             self.logger.info(f"the routing tree of {root} is {graph_string}")
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
+        experimental.experiment_ev.send_ok()
+        self.logger.info("send ok to start script.")
 
     def install_routing_tree(self, tree, root, recvs, multicast_ip):
         datapath = self.datapaths[root]

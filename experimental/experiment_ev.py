@@ -2,6 +2,7 @@ import socket
 import pickle
 
 import sys
+
 sys.path.append('/home/fwy/Desktop/graph')
 sys.path.append('/home/fwy/Desktop/graph/experimental')
 
@@ -39,6 +40,15 @@ def acquire_info() -> ExperimentInfo:
     info: ExperimentInfo = pickle.loads(data)
     client.close()
     return info
+
+
+def send_ok():
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(('127.0.0.1', 8889))
+    msg = "ok"
+    msg_bytes = msg.encode('utf-8')
+    client.sendall(msg_bytes)
+    client.close()
 
 
 if __name__ == "__main__":
