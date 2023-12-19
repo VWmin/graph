@@ -66,8 +66,6 @@ def random_s_from_graph(g: nx.Graph, number):
     nodes = list(g.nodes)
     while len(ret) != number:
         t = random.choice(nodes)
-        if t == 0:
-            continue
         ret.add(t)
     return ret
 
@@ -79,7 +77,7 @@ def random_s2r_from_graph(g: nx.Graph, number, src_set):
         ret[s] = set()
         while len(ret[s]) != number:
             t = random.choice(nodes)
-            if t == s or t == 0:
+            if t == s:
                 continue
             ret[s].add(t)
     return ret

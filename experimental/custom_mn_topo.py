@@ -7,6 +7,7 @@ from mininet.topo import Topo
 import networkx as nx
 
 import experiment_ev
+from experiment_info import ExperimentInfo
 
 
 class MyTopo(Topo):
@@ -16,16 +17,16 @@ class MyTopo(Topo):
 
     def build(self):
         for n in self.graph.nodes:
-            s_name = f"s{n + 1}"
-            h_name = f"h{n + 1}"
-            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n + 1))
+            s_name = f"s{n}"
+            h_name = f"h{n}"
+            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n))
             # Add single host on designated switches
             self.addHost(h_name)
             # directly add the link between hosts and their gateways
             self.addLink(s_name, h_name)
         # Connect your switches to each other as defined in networkx graph
         for (n1, n2) in self.graph.edges:
-            s_name_1, s_name_2 = f"s{n1 + 1}", f"s{n2 + 1}"
+            s_name_1, s_name_2 = f"s{n1}", f"s{n2}"
             self.addLink(s_name_1, s_name_2)
 
 
@@ -44,8 +45,8 @@ def run_command_async(host, command):
 
 
 def run_mn_net():
-    graph = experiment_ev.acquire_graph()
-    custom_topo = MyTopo(graph)
+    info: ExperimentInfo = experiment_ev.acquire_info()
+    custom_topo = MyTopo(info.graph)
     controller = RemoteController('c0')
     net = Mininet(topo=custom_topo, controller=controller)
     net.start()
@@ -70,9 +71,6 @@ def run_mn_net():
 
     CLI(net)
     net.stop()
-
-
-# topos = {'mytopo': lambda: MyTopo(demo_graph())}
 
 
 if __name__ == '__main__':

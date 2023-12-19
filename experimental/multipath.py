@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import math
-import pickle
-import socket
 import threading
 import time
 
@@ -27,22 +24,15 @@ from ryu.controller.handler import CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, HANDSHAKE_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
-from ryu.topology import event, switches
-from ryu.topology.api import get_link, get_all_link
+from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4
+from ryu.topology import switches
+from ryu.topology.api import get_all_link
 from ryu.topology.switches import LLDPPacket
 
-from ryu import utils
 from ryu.lib import hub
-
-import sys
 
 import experimental.experiment_ev
 import heat_degree_matrix
-
-sys.path.append('/home/fwy/Desktop/graph')
-sys.path.append('/home/fwy/Desktop/graph/experimental')
-import util
 
 
 class MULTIPATH_13(app_manager.RyuApp):
@@ -59,13 +49,13 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.datapaths = {}
         self.echo_delay = {}
         self.link_delay = {}
-        self.network = self.acquire_graph()
+        self.experiment_info = experimental.experiment_ev.acquire_info()
+        self.network = self.experiment_info.graph
         self.network.add_node(0)  # dummy node
         self.lock = threading.Lock()
         self.switch_service = lookup_service_brick("switches")
-        # self.monitor_thread = hub.spawn(self._monitor)
+        # self.monitor_thread = hub.spawn(self._monitor)  # discovery topo itself
         self.echo_thread = hub.spawn(self.run_echo)
-        # self.server_thread = hub.spawn(self.run_server)
         self.experimental_thread = hub.spawn(self.run_experiment)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg,
@@ -126,24 +116,10 @@ class MULTIPATH_13(app_manager.RyuApp):
             # save datapath delay
             self.echo_delay[dpid] = echo_delay
             self.logger.debug("controller to dpid(%s) echo delay is %s", dpid, echo_delay)
+            if len(self.datapaths) != 0 and len(self.datapaths) == len(self.echo_delay):
+                self.logger.info("got all echo reply")
         except ValueError as error:
             self.logger.warn("failed to get echo delay to dpid(%s), error: %s", dpid, error)
-
-    def send_group_mod(self, datapath):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        # Hardcoding the stuff, as we already know the topology diagram.
-        # Group table1
-        # Receiver port2, forward it to port2 and Port3
-
-        actions1 = [parser.OFPActionOutput(2)]
-        actions2 = [parser.OFPActionOutput(3)]
-        buckets = [parser.OFPBucket(actions=actions1),
-                   parser.OFPBucket(actions=actions2)]
-        req = parser.OFPGroupMod(datapath, ofproto.OFPGC_ADD,
-                                 ofproto.OFPGT_ALL, 50, buckets)
-        datapath.send_msg(req)
 
     def _monitor(self):
         while True:
@@ -275,11 +251,6 @@ class MULTIPATH_13(app_manager.RyuApp):
                     src_dpid: dst_inport,
                     dst_dpid: src_outport
                 })
-                # if self.network.edges[(src_dpid, dst_dpid)]["dpid_to_port"] is None:
-                #     self.network.edges[(src_dpid, dst_dpid)]["dpid_to_port"] = {
-                #         src_dpid: dst_inport,
-                #         dst_dpid: src_outport
-                #     }
 
                 for port in self.switch_service.ports:
                     if src_dpid == port.dpid and src_outport == port.port_no:
@@ -346,43 +317,17 @@ class MULTIPATH_13(app_manager.RyuApp):
                 actions = [parser.OFPActionOutput(out_port)]
                 self.send_packet_out(datapath, msg, actions)
 
-    @staticmethod
-    def acquire_graph():
-        graph = experimental.experiment_ev.acquire_graph()
-        renumbered = nx.Graph()
-        for edge in graph.edges:
-            renumbered.add_edge(edge[0] + 1, edge[1] + 1)
-        return renumbered
-
     def run_experiment(self):
-        self.logger.info("enter experiment")
-        hub.sleep(30)
+        hub.sleep(10)
+        self.logger.info(f"enter experiment at {time.time()}")
+        while len(self.link_delay) != len(self.network.edges) * 2:
+            hub.sleep(10)
 
-        # datapath = self.datapaths[1]
-        # parser = datapath.ofproto_parser
-        # self.send_group_mod(datapath)
-        # actions = [parser.OFPActionGroup(group_id=50)]
-        # match = parser.OFPMatch(in_port=1)
-        # self.add_flow(datapath, 10, match, actions)
-        # self.logger.info("installed")
-
-        b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
-        b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
-        d_lo, d_hi = 1, 10
-        d_req_lo, d_req_hi = 50, 100
-
-        # for edge in self.network.edges:
-        #     print(self.network.edges[edge]['weight'])
+        self.logger.info(f"start experiment at {time.time()}")
 
         self.lock.acquire()
-        util.add_attr_with_random_value(self.network, "bandwidth", int(b_lo), int(b_hi))
-        util.add_attr_with_random_value(self.network, "weight", d_lo, d_hi)
-        S = util.random_s_from_graph(self.network, 1)
-        S2R = util.random_s2r_from_graph(self.network, 3, S)
-        B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
-        D = util.random_d_with_range(S, d_req_lo, d_req_hi)
-
-        mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, D, B, S2R)
+        mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
+                                                           self.experiment_info.B, self.experiment_info.S2R)
         mine_instance.statistic()
         self.lock.release()
 
@@ -393,14 +338,14 @@ class MULTIPATH_13(app_manager.RyuApp):
             tree = mine_instance.routing_trees[root]
 
             # install group table and flow entry for sw -> sw
-            self.install_routing_tree(tree, root, S2R[root], multicast_ip)
+            self.install_routing_tree(tree, root, self.experiment_info.S2R[root], multicast_ip)
 
             # log info
             graph_string = "\nDirected Graph:\n"
             for edge in tree.edges():
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
             self.logger.info(f"the routing tree of {root} is {graph_string}")
-        self.logger.info(f"install group flow ok, s2r is {S2R}")
+        self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
 
     def install_routing_tree(self, tree, root, recvs, multicast_ip):
         datapath = self.datapaths[root]
