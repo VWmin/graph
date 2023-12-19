@@ -5,6 +5,7 @@ import sys
 import threading
 
 from mininet.cli import CLI
+from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import RemoteController
 from mininet.topo import Topo
@@ -111,5 +112,6 @@ class MininetEnv:
 
 
 if __name__ == '__main__':
+    setLogLevel('info')
     ev = MininetEnv()
     ev.start()

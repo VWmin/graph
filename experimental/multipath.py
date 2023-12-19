@@ -94,6 +94,11 @@ class MULTIPATH_13(app_manager.RyuApp):
         while True:
             hub.sleep(10)
             connected_sw = len(self.datapaths)
+            # not prepared.
+            if connected_sw != self.network.number_of_nodes()-1:
+                self.logger.info(f"not prepared, connected sw: {connected_sw}")
+                continue
+            # already collected.
             if connected_sw == 0 or len(self.echo_delay) == connected_sw:
                 continue
             self.logger.info("sending echo request to switches...")
