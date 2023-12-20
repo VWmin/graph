@@ -25,19 +25,28 @@ def int_to_16bit_hex_string(number: int):
 
 
 class MyTopo(Topo):
-    def __init__(self, graph: nx.Graph):
-        self.graph = graph
+    def __init__(self, info):
+        self.info = info
+        self.graph = info.graph
         super().__init__()
 
     def build(self):
+        # related host
+        terminals = set()
+        for s in self.info.S2R:
+            terminals.add(s)
+            for r in self.info.S2R[s]:
+                terminals.add(r)
+
         for n in self.graph.nodes:
             s_name = f"s{n}"
             h_name = f"h{n}"
             self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n))
-            # Add single host on designated switches
-            self.addHost(h_name)
-            # directly add the link between hosts and their gateways
-            self.addLink(s_name, h_name)
+            if n in terminals:
+                # Add single host on designated switches
+                self.addHost(h_name)
+                # directly add the link between hosts and their gateways
+                self.addLink(s_name, h_name)
         # Connect your switches to each other as defined in networkx graph
         for (n1, n2) in self.graph.edges:
             s_name_1, s_name_2 = f"s{n1}", f"s{n2}"
@@ -49,7 +58,7 @@ class MininetEnv:
         self.finished = False
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.info = experiment_ev.acquire_info()
-        custom_topo = MyTopo(self.info.graph)
+        custom_topo = MyTopo(self.info)
         controller = RemoteController('c0')
         self.net = Mininet(topo=custom_topo, controller=controller)
 
