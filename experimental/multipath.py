@@ -33,6 +33,7 @@ from ryu.lib import hub
 
 import experimental.experiment_ev
 import heat_degree_matrix
+import hlmr
 
 
 class MULTIPATH_13(app_manager.RyuApp):
@@ -95,7 +96,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             hub.sleep(10)
             connected_sw = len(self.datapaths)
             # not prepared.
-            if connected_sw != self.network.number_of_nodes()-1:
+            if connected_sw != self.network.number_of_nodes() - 1:
                 self.logger.info(f"not prepared, connected sw: {connected_sw}")
                 continue
             # already collected.
@@ -326,6 +327,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         hub.sleep(10)
         self.logger.info(f"enter experiment at {time.time()}")
         while len(self.link_delay) != len(self.network.edges) * 2:
+            self.logger.info(f"{len(self.link_delay)} != {len(self.network.edges) * 2}")
             hub.sleep(10)
 
         self.logger.info(f"start experiment at {time.time()}")
@@ -334,23 +336,28 @@ class MULTIPATH_13(app_manager.RyuApp):
         mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
                                                            self.experiment_info.B, self.experiment_info.S2R)
         # mine_instance.statistic()
+        hlmr_instance = hlmr.HLMR(self.network, self.experiment_info.D,
+                                  self.experiment_info.B, self.experiment_info.S2R)
         self.lock.release()
 
+        self.install_routing_trees(hlmr_instance.routing_trees, self.experiment_info.S2R)
+
+    def install_routing_trees(self, trees, S2R):
         group_no = 1
-        for root in mine_instance.routing_trees:
+        for root in trees:
             multicast_ip = f'224.0.1.{group_no}'
             group_no += 1
-            tree = mine_instance.routing_trees[root]
+            tree = trees[root]
 
             # install group table and flow entry for sw -> sw
-            self.install_routing_tree(tree, root, self.experiment_info.S2R[root], multicast_ip)
+            self.install_routing_tree(tree, root, S2R[root], multicast_ip)
 
             # log info
             graph_string = "\nDirected Graph:\n"
             for edge in tree.edges():
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
             self.logger.info(f"the routing tree of {root} is {graph_string}")
-        self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
+        self.logger.info(f"install group flow ok, s2r is {S2R}")
         experimental.experiment_ev.send_ok()
         self.logger.info("send ok to start script.")
 
