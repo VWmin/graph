@@ -30,6 +30,16 @@ def int_to_16bit_hex_string(number: int):
     return hex_string_fixed_length
 
 
+def int_to_ip_address(number: int):
+    if 1 <= number <= 255:
+        return f"10.0.0.{number}/24"
+    else:
+        number -= 255
+        mod = (number % 256) - 1
+        ip3 = (number // 256) + 1
+        return f"10.0.{ip3}.{mod}/24"
+
+
 class MyTopo(Topo):
     def __init__(self, info):
         self.info = info
@@ -50,7 +60,7 @@ class MyTopo(Topo):
             self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n))
             if n in terminals:
                 # Add single host on designated switches
-                self.addHost(h_name)
+                self.addHost(h_name, ip=int_to_ip_address(n))
                 # directly add the link between hosts and their gateways
                 self.addLink(s_name, h_name)
         # Connect your switches to each other as defined in networkx graph
