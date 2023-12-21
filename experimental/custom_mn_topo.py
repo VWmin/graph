@@ -9,10 +9,16 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import RemoteController
 from mininet.topo import Topo
-import networkx as nx
+
+from mininet.util import customClass
+from mininet.link import TCLink
+
+# Compile and run sFlow helper script
+# - configures sFlow on OVS
+# - posts topology to sFlow-RT
+import sflow
 
 import experiment_ev
-from experiment_info import ExperimentInfo
 
 
 def int_to_16bit_hex_string(number: int):
@@ -54,13 +60,16 @@ class MyTopo(Topo):
 
 
 class MininetEnv:
+    # Rate limit links to 10Mbps
+    link = customClass({'tc': TCLink}, 'tc,bw=10')
+
     def __init__(self):
         self.finished = False
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.info = experiment_ev.acquire_info()
         custom_topo = MyTopo(self.info)
         controller = RemoteController('c0')
-        self.net = Mininet(topo=custom_topo, controller=controller)
+        self.net = Mininet(topo=custom_topo, controller=controller, link=MininetEnv.link)
 
         signal.signal(signal.SIGINT, self.signal_handler)
 

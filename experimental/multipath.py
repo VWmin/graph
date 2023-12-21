@@ -24,7 +24,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, HANDSHAKE_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4
+from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
 from ryu.topology import switches
 from ryu.topology.api import get_all_link
 from ryu.topology.switches import LLDPPacket
@@ -248,7 +248,12 @@ class MULTIPATH_13(app_manager.RyuApp):
                  Tb = 2b;    echo c0->s2->c0
                  avg link delay s1-s2 = (T1+T2-Ta-Tb)/2 or T1-(Ta+Tb)/2 or T2-(Ta+Tb)/2
             """
+            # ignore lldp msg when got all link delay
+            if len(self.link_delay) != len(self.network.edges) * 2:
+                return
             try:
+                # lldp_pkt = pkt.get_protocol(lldp.lldp)
+                # self.logger.info(f"{lldp_pkt}")
                 src_dpid, src_outport = LLDPPacket.lldp_parse(msg.data)
                 dst_dpid, dst_inport = dpid, in_port
 
@@ -268,9 +273,10 @@ class MULTIPATH_13(app_manager.RyuApp):
                         if c <= 0:
                             # will it really happen?
                             return
-                        self.link_delay[(src_dpid, dst_dpid)] = c
+                        link, reverse_link = (src_dpid, dst_dpid), (dst_dpid, src_dpid)
+                        self.link_delay[link], self.link_delay[reverse_link] = c, c
                         # update link weight
-                        self.network.edges[(src_dpid, dst_dpid)]["weight"] = c
+                        self.network.edges[link]["weight"], self.network.edges[reverse_link]["weight"] = c, c
                         # update
                         self.logger.debug(f"link delay {src_dpid} <---> {dst_dpid} is {c}")
                         break
