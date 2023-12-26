@@ -163,8 +163,8 @@ int main(int argc, char **argv) {
     // 每轮的发包数
     const int MAX_NUM = 10;
 
-    auto src_ip = "10.0.0.1";
-    auto src_mac = "00:00:00:00:00:01";
+    auto src_ip = info.ip_addr.to_string();
+    auto src_mac = info.hw_addr.to_string();
 
     auto dst_ip = "224.0.1.1";
     auto dst_mac = "01:00:5e:00:00:02";

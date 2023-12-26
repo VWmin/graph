@@ -21,3 +21,10 @@ class ExperimentInfo:
         self.S2R = util.random_s2r_from_graph(self.graph, 3, self.S)
         self.B = util.random_d_with_range(self.S, int(b_req_lo), int(b_req_hi))
         self.D = util.random_d_with_range(self.S, d_req_lo, d_req_hi)
+
+        group_no = 1
+        self.src_to_ip = {}
+        for s in self.S2R:
+            self.src_to_ip[s] = f'224.0.1.{group_no}'
+            group_no += 1
+

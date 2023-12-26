@@ -249,7 +249,7 @@ class MULTIPATH_13(app_manager.RyuApp):
                  avg link delay s1-s2 = (T1+T2-Ta-Tb)/2 or T1-(Ta+Tb)/2 or T2-(Ta+Tb)/2
             """
             # ignore lldp msg when got all link delay
-            if len(self.link_delay) != len(self.network.edges) * 2:
+            if len(self.link_delay) == len(self.network.edges) * 2:
                 return
             try:
                 # lldp_pkt = pkt.get_protocol(lldp.lldp)
@@ -349,10 +349,8 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.install_routing_trees(hlmr_instance.routing_trees, self.experiment_info.S2R)
 
     def install_routing_trees(self, trees, S2R):
-        group_no = 1
         for root in trees:
-            multicast_ip = f'224.0.1.{group_no}'
-            group_no += 1
+            multicast_ip = self.experiment_info.src_to_ip[root]
             tree = trees[root]
 
             # install group table and flow entry for sw -> sw

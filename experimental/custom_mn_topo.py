@@ -13,11 +13,6 @@ from mininet.topo import Topo
 from mininet.util import customClass
 from mininet.link import TCLink
 
-# Compile and run sFlow helper script
-# - configures sFlow on OVS
-# - posts topology to sFlow-RT
-import sflow
-
 import experiment_ev
 
 
@@ -121,7 +116,8 @@ class MininetEnv:
         raw_msg = connection.recv(1024)
         msg = raw_msg.decode()
         if msg and msg == "ok":
-            self.run_script()
+            # self.run_script()
+            self.run_iperf()
         connection.close()
 
         self.server.close()
@@ -132,6 +128,16 @@ class MininetEnv:
             for r in self.info.S2R[s]:
                 self.run_script_on_host(f"h{r}", "./recv")
             self.run_script_on_host(f"h{s}", "./send")
+
+    def run_iperf(self):
+        print("\nstarting iperf")
+        for s in self.info.S2R:
+            multicast_ip = self.info.src_to_ip[s]
+            for r in self.info.S2R[s]:
+                self.run_script_on_host(f"h{r}", f"ip route add 224.0.0.0/4 dev h{r}-eth0 && "
+                                                 f"./run_iperf_server.sh {multicast_ip}")
+            self.run_script_on_host(f"h{s}", f"ip route add 224.0.0.0/4 dev h{s}-eth0 && "
+                                             f"iperf -c {multicast_ip} -u -T 32 -t 3 -i 1")
 
     def run_script_on_host(self, hostname, cmd):
         host = self.net.getNodeByName(hostname)
