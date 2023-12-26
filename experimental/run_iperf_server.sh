@@ -12,7 +12,7 @@ outfile="${multicast_ip}-${hostname}"
 ip route add 224.0.0.0/4 dev "${hostname}"-eth0
 
 # 启动iperf服务器，指定监听地址
-iperf -s -u -B "$multicast_ip" -i 1 > "$outfile" 2>&1 &
+iperf -s -u -B "$multicast_ip" > "$outfile" 2>&1 &
 
 # 等待一段时间（例如60秒）
 sleep 15
