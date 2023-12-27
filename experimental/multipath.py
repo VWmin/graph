@@ -25,7 +25,7 @@ from ryu.controller.handler import MAIN_DISPATCHER, HANDSHAKE_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
-from ryu.topology import switches
+from ryu.topology import switches, event
 from ryu.topology.api import get_all_link
 from ryu.topology.switches import LLDPPacket
 
@@ -55,8 +55,8 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.network.add_node(0)  # dummy node
         self.lock = threading.Lock()
         self.switch_service = lookup_service_brick("switches")
-        # self.monitor_thread = hub.spawn(self._monitor)  # discovery topo itself
-        self.echo_thread = hub.spawn(self.run_echo)
+        self.monitor_thread = hub.spawn(self._monitor)
+        # self.echo_thread = hub.spawn(self.run_echo)  # deprecated
         self.experimental_thread = hub.spawn(self.run_experiment)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg,
@@ -133,39 +133,55 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.lock.acquire()
             link_list = get_all_link(self)
             for link in link_list:
-                u, v = link.src, link.dst
-                # check node
-                if not self.network.has_node(u.dpid):
-                    self.network.add_node(u.dpid, port_to_dpid={}, dpid_to_port={})
-                if not self.network.has_node(v.dpid):
-                    self.network.add_node(v.dpid, port_to_dpid={}, dpid_to_port={})
-                # check edge
-                if not self.network.has_edge(u.dpid, v.dpid):
-                    self.network.add_edge(u.dpid, v.dpid, dpid_to_port={
-                        u.dpid: v.port_no,
-                        v.dpid: u.port_no
-                    })
-                    # sw port -> connected sw dpid
-                    self.network.nodes[u.dpid]['port_to_dpid'][u.port_no] = v.dpid
-                    self.network.nodes[v.dpid]['port_to_dpid'][v.port_no] = u.dpid
-                else:
-                    if len(self.link_delay) > 0:
-                        link = (u.dpid, v.dpid)
-                        delay = self.link_delay.get(link, -1)
-                        if delay <= 0:
-                            delay = sum(self.link_delay.values()) / len(self.link_delay)
-                        self.network.edges[link]["weight"] = delay
+                edge_key = (link.src.dpid, link.dst.dpid)
+                self.network.edges[edge_key]['dpid_to_port'] = {
+                    link.src.dpid: link.dst.port_no,
+                    link.dst.dpid: link.src.port_no,
+                }
+
+                # record delay time
+                send_time = self.switch_service.ports[link.src].timestamp
+                if send_time is None:
+                    continue
+                recv_time = self.switch_service.links[link]
+                self.link_delay[edge_key] = recv_time - send_time
+                self.network.edges[edge_key]['weight'] = recv_time - send_time
+
             self.lock.release()
 
-    # def add_host(self, host_mac, inport, dpid):
-    #     if host_mac not in self.network:
-    #         print("add host into network:", host_mac)
-    #
-    #         self.network.add_node(host_mac, connected=dict())
-    #         self.network.nodes[host_mac]['connected'][inport] = dpid
-    #
-    #         self.network.add_edge(host_mac, dpid, port=inport)
-    #         self.network.add_edge(dpid, host_mac, port=inport)
+    def construct_network_by_link(self, link):
+        u, v = link.src, link.dst
+        # check node
+        if not self.network.has_node(u.dpid):
+            self.network.add_node(u.dpid, port_to_dpid={}, dpid_to_port={})
+        if not self.network.has_node(v.dpid):
+            self.network.add_node(v.dpid, port_to_dpid={}, dpid_to_port={})
+        # check edge
+        if not self.network.has_edge(u.dpid, v.dpid):
+            self.network.add_edge(u.dpid, v.dpid, dpid_to_port={
+                u.dpid: v.port_no,
+                v.dpid: u.port_no
+            })
+            # sw port -> connected sw dpid
+            self.network.nodes[u.dpid]['port_to_dpid'][u.port_no] = v.dpid
+            self.network.nodes[v.dpid]['port_to_dpid'][v.port_no] = u.dpid
+        else:
+            if len(self.link_delay) > 0:
+                link = (u.dpid, v.dpid)
+                delay = self.link_delay.get(link, -1)
+                if delay <= 0:
+                    delay = sum(self.link_delay.values()) / len(self.link_delay)
+                self.network.edges[link]["weight"] = delay
+
+    def add_host(self, host_mac, inport, dpid):
+        if host_mac not in self.network:
+            print("add host into network:", host_mac)
+
+            self.network.add_node(host_mac, connected=dict())
+            self.network.nodes[host_mac]['connected'][inport] = dpid
+
+            self.network.add_edge(host_mac, dpid, port=inport)
+            self.network.add_edge(dpid, host_mac, port=inport)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
@@ -238,51 +254,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         if eth.ethertype == ether_types.ETH_TYPE_IPV6:
             return
         elif eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            """
-                     c0
-                   a    b 
-                 s1   c  s2
-                 T1 = a+c+b; LLDP c0->s1->s2->c0
-                 T2 = b+c+a; LLDP c0->s2->s1->c0
-                 Ta = 2a;    echo c0->s1->c0
-                 Tb = 2b;    echo c0->s2->c0
-                 avg link delay s1-s2 = (T1+T2-Ta-Tb)/2 or T1-(Ta+Tb)/2 or T2-(Ta+Tb)/2
-            """
-            # ignore lldp msg when got all link delay
-            if len(self.link_delay) == len(self.network.edges) * 2:
-                return
-            try:
-                # lldp_pkt = pkt.get_protocol(lldp.lldp)
-                # self.logger.info(f"{lldp_pkt}")
-                src_dpid, src_outport = LLDPPacket.lldp_parse(msg.data)
-                dst_dpid, dst_inport = dpid, in_port
-
-                # record dpid in which port
-                self.network.edges[(src_dpid, dst_dpid)].setdefault("dpid_to_port", {
-                    src_dpid: dst_inport,
-                    dst_dpid: src_outport
-                })
-
-                for port in self.switch_service.ports:
-                    if src_dpid == port.dpid and src_outport == port.port_no:
-                        send_time = self.switch_service.ports[port].timestamp
-                        if send_time is None:
-                            return
-                        t = time.time() - send_time
-                        c = t - (self.echo_delay[src_dpid] + self.echo_delay[dst_dpid]) / 2
-                        if c <= 0:
-                            # will it really happen?
-                            return
-                        link, reverse_link = (src_dpid, dst_dpid), (dst_dpid, src_dpid)
-                        self.link_delay[link], self.link_delay[reverse_link] = c, c
-                        # update link weight
-                        self.network.edges[link]["weight"], self.network.edges[reverse_link]["weight"] = c, c
-                        # update
-                        self.logger.debug(f"link delay {src_dpid} <---> {dst_dpid} is {c}")
-                        break
-            except KeyError:
-                return
-
+            return
         elif eth.ethertype == ether_types.ETH_TYPE_ARP:
             self.logger.debug("ARP processing")
             arp_pkt = pkt.get_protocol(arp.arp)
@@ -333,20 +305,19 @@ class MULTIPATH_13(app_manager.RyuApp):
         hub.sleep(10)
         self.logger.info(f"enter experiment at {time.time()}")
         while len(self.link_delay) != len(self.network.edges) * 2:
-            self.logger.info(f"{len(self.link_delay)} != {len(self.network.edges) * 2}")
+            self.logger.info(f"experiment waiting link info, {len(self.link_delay)} != {len(self.network.edges) * 2}")
             hub.sleep(10)
 
         self.logger.info(f"start experiment at {time.time()}")
 
         self.lock.acquire()
-        mine_instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
-                                                           self.experiment_info.B, self.experiment_info.S2R)
-        # mine_instance.statistic()
-        hlmr_instance = hlmr.HLMR(self.network, self.experiment_info.D,
-                                  self.experiment_info.B, self.experiment_info.S2R)
+        instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
+                                                      self.experiment_info.B, self.experiment_info.S2R)
+        # hlmr_instance = hlmr.HLMR(self.network, self.experiment_info.D,
+        #                           self.experiment_info.B, self.experiment_info.S2R)
         self.lock.release()
 
-        self.install_routing_trees(hlmr_instance.routing_trees, self.experiment_info.S2R)
+        self.install_routing_trees(instance.routing_trees, self.experiment_info.S2R)
 
     def install_routing_trees(self, trees, S2R):
         for root in trees:
