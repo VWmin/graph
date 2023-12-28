@@ -59,8 +59,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.monitor_thread = hub.spawn(self._monitor)
         # self.echo_thread = hub.spawn(self.run_echo)  # deprecated
         self.experimental_thread = hub.spawn(self.run_experiment)
-        self.dp_to_group_mod = {}
-        self.dp_to_flow_mod = {}
+        self.link_flag = False
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg,
                 [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
@@ -132,26 +131,35 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.logger.warn("failed to get echo delay to dpid(%s), error: %s", dpid, error)
 
     def _monitor(self):
-        while True:
-            hub.sleep(5)
-            self.lock.acquire()
+        while len(self.link_delay) != len(self.network.edges):
+            hub.sleep(10)
+            self.logger.info(f"query links, expect {len(self.network.edges)}, now {len(self.link_delay)}")
             link_list = get_all_link(self)
+            self.lock.acquire()
             for link in link_list:
                 edge_key = (link.src.dpid, link.dst.dpid)
-                self.network.edges[edge_key]['dpid_to_port'] = {
-                    link.src.dpid: link.dst.port_no,
-                    link.dst.dpid: link.src.port_no,
-                }
+                if link.dst.dpid < link.src.dpid:
+                    edge_key = (link.dst.dpid, link.src.dpid)
+
+                # record dpid to port
+                if 'dpid_to_port' not in self.network.edges[edge_key]:
+                    self.network.edges[edge_key]['dpid_to_port'] = {
+                        link.src.dpid: link.dst.port_no,
+                        link.dst.dpid: link.src.port_no,
+                    }
 
                 # record delay time
-                send_time = self.switch_service.ports[link.src].timestamp
-                if send_time is None:
-                    continue
-                recv_time = self.switch_service.links[link]
-                self.link_delay[edge_key] = recv_time - send_time
-                self.network.edges[edge_key]['weight'] = recv_time - send_time
+                if edge_key not in self.link_delay:
+                    send_time = self.switch_service.ports[link.src].timestamp
+                    if send_time is None:
+                        continue
+                    recv_time = self.switch_service.links[link]
+                    self.link_delay[edge_key] = recv_time - send_time
+                    self.network.edges[edge_key]['weight'] = recv_time - send_time
 
             self.lock.release()
+        self.link_flag = True
+        self.logger.info("monitor exit...")
 
     def construct_network_by_link(self, link):
         u, v = link.src, link.dst
@@ -308,8 +316,7 @@ class MULTIPATH_13(app_manager.RyuApp):
     def run_experiment(self):
         hub.sleep(10)
         self.logger.info(f"enter experiment at {time.time()}")
-        while len(self.link_delay) != len(self.network.edges) * 2:
-            self.logger.info(f"experiment waiting link info, {len(self.link_delay)} != {len(self.network.edges) * 2}")
+        while not self.link_flag:
             hub.sleep(10)
 
         self.logger.info(f"start experiment at {time.time()}")
