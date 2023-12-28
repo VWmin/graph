@@ -17,14 +17,17 @@ class ExperimentInfo:
 
         util.add_attr_with_random_value(self.graph, "bandwidth", int(b_lo), int(b_hi))
         util.add_attr_with_random_value(self.graph, "weight", d_lo, d_hi)
-        self.S = util.random_s_from_graph(self.graph, 1)
-        self.S2R = util.random_s2r_from_graph(self.graph, 3, self.S)
+        self.S = util.random_s_from_graph(self.graph, 5)
+        self.S2R = util.random_s2r_from_graph(self.graph, 5, self.S)
         self.B = util.random_d_with_range(self.S, int(b_req_lo), int(b_req_hi))
         self.D = util.random_d_with_range(self.S, d_req_lo, d_req_hi)
 
         group_no = 1
-        self.src_to_ip = {}
+        self.src_to_group_no = {}
         for s in self.S2R:
-            self.src_to_ip[s] = f'224.0.1.{group_no}'
+            self.src_to_group_no[s] = group_no
             group_no += 1
+
+    def src_to_group_ip(self, src):
+        return f'224.0.1.{self.src_to_group_no[src]}'
 

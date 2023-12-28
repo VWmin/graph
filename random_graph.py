@@ -91,7 +91,7 @@ def demo_graph_kmb():
 
 
 def gt_itm_example() -> nx.Graph:
-    # filename = r"D:\program\gt-itm\sample-graphs\ts\ts600\ts600-0.alt"
+    # filename = r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts600/ts600-0.alt"
     # filename = r"D:\vm_share\graph\experimental\sample-graphs\ts\ts1200\ts1200-0.alt"
     filename = r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts100/ts100-0.alt"
     g = nx.Graph()

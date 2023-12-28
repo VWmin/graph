@@ -54,6 +54,6 @@ def send_ok():
 if __name__ == "__main__":
     import random_graph
 
-    g = random_graph.demo_graph()
-    # g = random_graph.gt_itm_example()
+    # g = random_graph.demo_graph()
+    g = random_graph.gt_itm_example()
     run_server(ExperimentInfo(g))

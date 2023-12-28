@@ -74,7 +74,8 @@ class MininetEnv:
         self.info = experiment_ev.acquire_info()
         custom_topo = MyTopo(self.info)
         controller = RemoteController('c0')
-        self.net = Mininet(topo=custom_topo, controller=controller, link=MininetEnv.link)
+        # self.net = Mininet(topo=custom_topo, controller=controller, link=MininetEnv.link)
+        self.net = Mininet(topo=custom_topo, controller=controller)
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
@@ -132,7 +133,7 @@ class MininetEnv:
     def run_iperf(self):
         print("\nstarting iperf")
         for s in self.info.S2R:
-            multicast_ip = self.info.src_to_ip[s]
+            multicast_ip = self.info.src_to_group_ip(s)
             for r in self.info.S2R[s]:
                 self.run_script_on_host(f"h{r}", f"./run_iperf_server.sh {multicast_ip} h{r}")
             self.run_script_on_host(f"h{s}", f"./run_iperf_client.sh {multicast_ip} h{s}")

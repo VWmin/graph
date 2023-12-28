@@ -17,13 +17,14 @@ import threading
 import time
 
 import networkx as nx
+from ryu import utils
 from ryu.base import app_manager
 from ryu.base.app_manager import lookup_service_brick
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, HANDSHAKE_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser
 from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
 from ryu.topology import switches, event
 from ryu.topology.api import get_all_link
@@ -58,12 +59,15 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.monitor_thread = hub.spawn(self._monitor)
         # self.echo_thread = hub.spawn(self.run_echo)  # deprecated
         self.experimental_thread = hub.spawn(self.run_experiment)
+        self.dp_to_group_mod = {}
+        self.dp_to_flow_mod = {}
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg,
                 [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def error_msg_handler(self, ev):
         msg = ev.msg
-        self.logger.error('OFPErrorMsg received: type=0x%02x code=0x%02x ', msg.type, msg.code)
+        self.logger.debug('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s',
+                          msg.type, msg.code, utils.hex_array(msg.data))
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -319,49 +323,52 @@ class MULTIPATH_13(app_manager.RyuApp):
 
         self.install_routing_trees(instance.routing_trees, self.experiment_info.S2R)
 
+        self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
+        hub.sleep(3)
+        experimental.experiment_ev.send_ok()
+        self.logger.info("send ok to start script.")
+
     def install_routing_trees(self, trees, S2R):
-        for root in trees:
-            multicast_ip = self.experiment_info.src_to_ip[root]
-            tree = trees[root]
+        for src in trees:
+            group_id = self.experiment_info.src_to_group_no[src]
+            multicast_ip = self.experiment_info.src_to_group_ip(src)
+            tree = trees[src]
 
             # install group table and flow entry for sw -> sw
-            self.install_routing_tree(tree, root, S2R[root], multicast_ip)
+            self.install_routing_tree(tree, src, S2R[src], group_id, multicast_ip)
 
             # log info
             graph_string = "\nDirected Graph:\n"
             for edge in tree.edges():
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
-            self.logger.info(f"the routing tree of {root} is {graph_string}")
-        self.logger.info(f"install group flow ok, s2r is {S2R}")
-        experimental.experiment_ev.send_ok()
-        self.logger.info("send ok to start script.")
+            self.logger.info(f"the routing tree of {src} is {graph_string}")
 
-    def install_routing_tree(self, tree, root, recvs, multicast_ip):
-        datapath = self.datapaths[root]
+    def install_routing_tree(self, tree, cur_node, recvs, group_id, multicast_ip):
+        datapath = self.datapaths[cur_node]
 
-        succ = list(tree.successors(root))
-        group_id = 50 + root
+        succ = list(tree.successors(cur_node))
 
         if len(succ) > 0:
-            self.logger.info("installing group table and flow to %s", root)
-            out_ports = [self.network[root][e]['dpid_to_port'][e] for e in succ]
-            if root in recvs:
+            self.logger.info("installing group table and flow to %s", cur_node)
+            out_ports = [self.network[cur_node][e]['dpid_to_port'][e] for e in succ]
+            if cur_node in recvs:
                 out_ports.append(1)
             self.send_group_mod_flood(datapath, out_ports, group_id)
             self.add_flow_to_group_table(datapath, group_id, multicast_ip)
 
             for node in succ:
-                self.install_routing_tree(tree, node, recvs, multicast_ip)
-        elif len(succ) == 0 and root in recvs:
+                self.install_routing_tree(tree, node, recvs, group_id, multicast_ip)
+        elif len(succ) == 0 and cur_node in recvs:
             self.add_flow_to_connected_host(datapath, multicast_ip)
 
-    @staticmethod
-    def send_group_mod_flood(datapath, out_ports, group_id):
+    def send_group_mod_flood(self, datapath, out_ports, group_id):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         buckets = [parser.OFPBucket(actions=[parser.OFPActionOutput(out_port)]) for out_port in out_ports]
         req = parser.OFPGroupMod(datapath, ofproto.OFPGC_ADD, ofproto.OFPGT_ALL, group_id, buckets)
         datapath.send_msg(req)
+        # self.dp_to_group_mod.setdefault(datapath.id, [])
+        # self.dp_to_group_mod[datapath.id].append(req)
 
     def add_flow_to_group_table(self, datapath, group_id, multicast_ip):
         parser = datapath.ofproto_parser
@@ -369,6 +376,8 @@ class MULTIPATH_13(app_manager.RyuApp):
         match = parser.OFPMatch(eth_type=0x800, ipv4_dst=multicast_ip)
         actions = [parser.OFPActionGroup(group_id=group_id)]
         self.add_flow(datapath, 1, match, actions)
+        # self.dp_to_flow_mod.setdefault(datapath.id, [])
+        # self.dp_to_flow_mod[datapath.id].append(actions)
 
     def add_flow_to_connected_host(self, datapath, multicast_ip):
         self.logger.info("installing sw to host flow to %s", datapath.id)
