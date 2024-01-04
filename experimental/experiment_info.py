@@ -22,6 +22,8 @@ class ExperimentInfo:
         self.B = util.random_d_with_range(self.S, int(b_req_lo), int(b_req_hi))
         self.D = util.random_d_with_range(self.S, d_req_lo, d_req_hi)
 
+        print(f"src to recv is {self.S2R}")
+
         group_no = 1
         self.src_to_group_no = {}
         for s in self.S2R:
