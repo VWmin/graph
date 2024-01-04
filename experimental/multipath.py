@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
 import threading
 import time
 
@@ -330,6 +331,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.logger.info("send ok to start script.")
 
     def install_routing_trees(self, trees, S2R):
+        output = {}
         for src in trees:
             group_id = self.experiment_info.src_to_group_no[src]
             multicast_ip = self.experiment_info.src_to_group_ip(src)
@@ -340,9 +342,15 @@ class MULTIPATH_13(app_manager.RyuApp):
 
             # log info
             graph_string = "\nDirected Graph:\n"
+            output[src] = []
             for edge in tree.edges():
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
+                output[src].append(f"{edge[0]}-{edge[1]}")
             self.logger.info(f"the routing tree of {src} is {graph_string}")
+
+        # dump routing trees to file.
+        with open('routing_trees.json', 'w') as json_file:
+            json.dump(output, json_file, indent=4)
 
     def install_routing_tree(self, tree, cur_node, recvs, group_id, multicast_ip):
         datapath = self.datapaths[cur_node]
