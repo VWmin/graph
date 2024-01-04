@@ -137,7 +137,7 @@ class MininetEnv:
             multicast_ip = self.info.src_to_group_ip(s)
             for r in self.info.S2R[s]:
                 self.run_script_on_host(f"h{r}", f"./run_iperf_server.sh {multicast_ip} h{r}")
-            self.run_script_on_host(f"h{s}", f"./run_iperf_client.sh {multicast_ip} h{s}")
+            self.run_script_on_host(f"h{s}", f"./run_iperf_client.sh {multicast_ip} h{s} {self.info.B[s]}M")
 
     def run_script_on_host(self, hostname, cmd):
         host = self.net.getNodeByName(hostname)
