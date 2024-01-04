@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <ctime>
 #include <cstring>
+#include <sstream>
+#include <bitset>
+#include <iomanip>
 #include <unordered_map>
 
 
@@ -35,64 +38,29 @@ static payload_type get_nowtime() {
     return vec;
 }
 
-static std::string get_randmac() {
-    std::string mac;
-    const static char sample[] = "0123456789abcdef";
-    const int mod = strlen(sample);
-     #ifdef LOCAL
-         std::cout << "mod = " << mod << std::endl;
-     #endif
-    for (int i = 1; i <= 6; ++i) {
-        mac.push_back(sample[rand() % mod]);
-        mac.push_back(sample[rand() % mod]);
-        if (i != 6) mac.push_back(':');
-    }
-    #ifdef LOCAL
-         std::cout << "rand mac: " << mac << std::endl;
-    #endif
-    return mac;
-}
+std::string ipv4MulticastToMac(const std::string& ipv4Multicast) {
+    // 将IPv4组播地址转换为二进制字符串
+    std::istringstream iss(ipv4Multicast);
+    char delimiter;
+    int octet;
+    std::string binaryString;
 
-static std::string get_randip(const std::string RANDOM_IP_POOL = "10.0.10.222/8") {
-    auto pos = RANDOM_IP_POOL.find('/');
-    // std::cout << pos << std::endl;
-    auto str_ip_addr = RANDOM_IP_POOL.substr(0, pos);
-    auto str_ip_mask = RANDOM_IP_POOL.substr(pos + 1);
-    // #ifdef LOCAL
-    //     std::cout << "ip: " << str_ip_addr << std::endl;
-    //     std::cout << "mask: " << str_ip_mask << std::endl;
-    // #endif
-    unsigned int mask = 0x0;
-    for (int i = 31; i >= (31 - std::stoi(str_ip_mask)); --i) {
-        mask |= (1 << i);
+    while (iss >> octet) {
+        binaryString += std::bitset<8>(octet).to_string();
+        iss >> delimiter; // Read and discard the delimiter ('.' in this case)
     }
-    struct sockaddr_in adr_inet;
-    if (inet_aton(str_ip_addr.c_str(), &adr_inet.sin_addr) != 1) {
-        std::cerr << "inet_aton error" << std::endl;
-        exit(1);
-    }
-    // std::cout << "????" << std::endl;
-    unsigned int ip_addr = ntohl(adr_inet.sin_addr.s_addr);
-    // std::cout << ip_addr << std::endl;
-    // std::cout << htonl(ip_addr) << std::endl;
-    // std::cout << ntohl(ip_addr) << std::endl;
-    // #ifdef LCOAL
-    //     std::cout << "32bit ip: " << ip_addr << std::endl;
-    // #endif
-    // std::cout << "werwoei" << std::endl;
-    unsigned int ip_addr_min = ip_addr & (mask & 0xffffffff);
-    unsigned int ip_addr_max = ip_addr | (~mask & 0xffffffff);
 
-    unsigned int dis = ip_addr_max - ip_addr_min;
-    // std::cout << dis << std::endl;
-    // std::srand(unsigned(time(NULL)));
-    unsigned int ip_rand = ip_addr_min + (rand() % (dis == 0 ? 1 : dis));
-    std::string str_ip_rand = std::string(inet_ntoa(in_addr{htonl(ip_rand)}));
+    // 取IPv4组播地址的最低23位
+    std::string lowest23Bits = binaryString.substr(9, 23);
 
-    #ifdef LOCAL
-        std::cout << "IP rand: " << str_ip_rand << std::endl;
-    #endif
-    return str_ip_rand;
+    // 构建MAC地址
+    std::stringstream macStream;
+    macStream << "01:00:5E:";
+    macStream << std::hex << std::setw(2) << std::setfill('0') << std::stoi(lowest23Bits.substr(0, 2), nullptr, 2);
+    macStream << ":" << std::hex << std::setw(2) << std::setfill('0') << std::stoi(lowest23Bits.substr(2, 2), nullptr, 2);
+    macStream << ":" << std::hex << std::setw(2) << std::setfill('0') << std::stoi(lowest23Bits.substr(4, 2), nullptr, 2);
+
+    return macStream.str();
 }
 
 static EthernetII getEthernetII(const std::string& dst_ip_ = "10.0.0.2", const std::string& dst_mac_ = "00:00:00:00:00:02",
@@ -104,33 +72,25 @@ static EthernetII getEthernetII(const std::string& dst_ip_ = "10.0.0.2", const s
         RawPDU(get_nowtime());
 }
 
-static IP getIP(const std::string& dst_ip, const std::string& src_ip, const int& sport_ = 12345, const int& dport_ = 12345){
-    return IP(dst_ip) / UDP(dport_, sport_) / RawPDU(get_nowtime());
-}
 
 
 
 int main(int argc, char **argv) {
     srand(unsigned(time(NULL)));
-    // 轮数
-//    int MAX_CNT = 1; //rand() % 10 + 1;
-//    int ch;
-//    while ((ch = getopt(argc, argv, "I:M:N:")) != -1) {
-//        switch (ch) {
-//            case 'I':
-//                dest_ip = std::string(optarg);
-//                break;
-//            case 'M':
-//                dest_mac = std::string(optarg);
-//                break;
-//            case 'N':
-//                MAX_CNT = atoi(optarg);
-//                break;
-//        }
-//    }
-//     std::cout << "dest_ip: " << dest_ip << "\n";
-//     std::cout << "dest_mac: " << dest_mac << "\n";
-//     std::cout << "MAX_CNT: " << MAX_CNT << "\n\n";
+    std::string dst_ip = "";
+    std::string dst_mac = "";
+    int ch;
+    while ((ch = getopt(argc, argv, "i:")) != -1) {
+        switch (ch) {
+            case 'i':
+                dst_ip = std::string(optarg);
+                break;
+        }
+    }
+    dst_mac = ipv4MulticastToMac(dst_ip);
+    std::cout << "dest_ip: " << dst_ip << "\n";
+    std::cout << "dest_mac: " << dst_mac << "\n\n";
+
 
     auto interface_vec = NetworkInterface::all();
     NetworkInterface dev;
@@ -157,8 +117,6 @@ int main(int argc, char **argv) {
 
     #endif
     PacketSender sender;
-    // auto eth = gen.getEthernetII();
-    // sender.send(eth, iface);
 
     // 每轮的发包数
     const int MAX_NUM = 10;
@@ -166,17 +124,13 @@ int main(int argc, char **argv) {
     auto src_ip = info.ip_addr.to_string();
     auto src_mac = info.hw_addr.to_string();
 
-    auto dst_ip = "224.0.1.1";
-    auto dst_mac = "01:00:5e:00:00:02";
-
     for (int send_num = 0; send_num < MAX_NUM; ++send_num) {
         auto packet_to_send = getEthernetII(dst_ip, dst_mac, src_ip, src_mac);
-//        auto packet_to_send = getIP(dst_ip, src_ip);
         sender.send(packet_to_send, dev);
         std::cout << "send packet number "<< send_num << "\n";
 //        usleep(500);
-         usleep(800000);
-        // sleep(1);
+        usleep(800000);
+//        sleep(1);
     }
 
     return 0;

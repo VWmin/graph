@@ -4,12 +4,14 @@ using namespace Tins;
 
 #include <iostream>
 #include <fstream>
+#include <getopt.h>
 
 
 class Consumer {
 const std::string dev_name;
+const std::string group_no;
 public:
-    Consumer(const std::string& dev_name):dev_name(dev_name){}
+    Consumer(const std::string& dev_name, const std::string& group_no):dev_name(dev_name),group_no(group_no){}
     bool operator()(Packet& packet) {
         std::cout << "pcaket.....\n";
         std::string ip_record = "";
@@ -36,7 +38,7 @@ public:
             std::cout << "now: " << now << " ";
             std::cout << "dif: " << dif << " ms ";
             if (!ip_record.empty()) {
-                static std::ofstream f{"record-"+this->dev_name};
+                static std::ofstream f{"g"+this->group_no+"-"+this->dev_name};
                 std::cout << "write to file" << "\n";
                 std::cout << "ip： " << ip_record << "\n";
                 std::cout.flush();
@@ -50,7 +52,18 @@ public:
 
 
 
-int main() {
+int main(int argc, char **argv) {
+    std::string group_no = "";
+
+    int ch;
+    while ((ch = getopt(argc, argv, "g:")) != -1) {
+        switch (ch) {
+            case 'g':
+                group_no = std::string(optarg);
+                break;
+        }
+    }
+
     auto interface_vec = NetworkInterface::all();
     NetworkInterface dev;
     bool flag = false;
@@ -89,5 +102,5 @@ int main() {
                << "start sniffing....\n";
     Sniffer sniffer(dev.name(), config);
 
-    sniffer.sniff_loop(Consumer(dev.name()), 0);
+    sniffer.sniff_loop(Consumer(dev.name(), group_no), 0);
 }

@@ -1,8 +1,10 @@
+import random
 import signal
 import socket
 import subprocess
 import sys
 import threading
+import time
 
 from mininet.cli import CLI
 from mininet.log import setLogLevel
@@ -54,10 +56,12 @@ class MyTopo(Topo):
                 self.addHost(h_name, ip=int_to_ip_address(n))
                 # directly add the link between hosts and their gateways
                 self.addLink(s_name, h_name)
+
         # Connect your switches to each other as defined in networkx graph
         for (n1, n2) in self.graph.edges:
             s_name_1, s_name_2 = f"s{n1}", f"s{n2}"
-            self.addLink(s_name_1, s_name_2)
+            self.addLink(s_name_1, s_name_2, cls=TCLink,
+                         bw=self.graph[n1][n2]['bandwidth'], delay=f"{self.graph[n1][n2]['weight']}ms")
 
 
 class MininetEnv:
@@ -113,7 +117,8 @@ class MininetEnv:
         raw_msg = connection.recv(1024)
         msg = raw_msg.decode()
         if msg and msg == "ok":
-            # self.run_script()
+            self.run_script()
+            time.sleep(15)
             self.run_iperf()
         connection.close()
 
@@ -123,8 +128,8 @@ class MininetEnv:
         print("\nstarting script")
         for s in self.info.S2R:
             for r in self.info.S2R[s]:
-                self.run_script_on_host(f"h{r}", "./recv")
-            self.run_script_on_host(f"h{s}", "./send")
+                self.run_script_on_host(f"h{r}", f"./recv -g {self.info.src_to_group_no[s]}")
+            self.run_script_on_host(f"h{s}", f"./send -i {self.info.src_to_group_ip(s)}")
 
     def run_iperf(self):
         print("\nstarting iperf")
