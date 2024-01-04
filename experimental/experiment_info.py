@@ -17,8 +17,10 @@ class ExperimentInfo:
 
         util.add_attr_with_random_value(self.graph, "bandwidth", int(b_lo), int(b_hi))
         util.add_attr_with_random_value(self.graph, "weight", d_lo, d_hi)
-        self.S = util.random_s_from_graph(self.graph, 5)
-        self.S2R = util.random_s2r_from_graph(self.graph, 5, self.S)
+        # self.S = util.random_s_from_graph(self.graph, 5)
+        # self.S2R = util.random_s2r_from_graph(self.graph, 5, self.S)
+        self.S = {137, 457, 400, 305, 20}
+        self.S2R = {137: {64, 519, 588, 240, 287}, 457: {100, 165, 422, 584, 234}, 400: {16, 466, 475, 28, 511}, 305: {129, 101, 399, 16, 25}, 20: {585, 113, 340, 24, 350}}
         self.B = util.random_d_with_range(self.S, int(b_req_lo), int(b_req_hi))
         self.D = util.random_d_with_range(self.S, d_req_lo, d_req_hi)
 
