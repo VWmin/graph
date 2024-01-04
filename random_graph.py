@@ -90,10 +90,15 @@ def demo_graph_kmb():
     return G
 
 
-def gt_itm_example() -> nx.Graph:
-    # filename = r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts600/ts600-0.alt"
-    # filename = r"D:\vm_share\graph\experimental\sample-graphs\ts\ts1200\ts1200-0.alt"
-    filename = r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts100/ts100-0.alt"
+def gt_itm_600():
+    return gt_itm_example(r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts600/ts600-0.alt")
+
+
+def gt_itm_100():
+    return gt_itm_example(r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts100/ts100-0.alt")
+
+
+def gt_itm_example(filename) -> nx.Graph:
     g = nx.Graph()
     with open(filename, "r") as f:
         flag = False
@@ -121,5 +126,4 @@ def as_733_example():
 
 
 if __name__ == '__main__':
-    g = gt_itm_example()
-    print(g)
+    pass

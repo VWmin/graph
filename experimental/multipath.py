@@ -17,7 +17,7 @@ import threading
 import time
 
 import networkx as nx
-from ryu import utils
+from ryu import utils, cfg
 from ryu.base import app_manager
 from ryu.base.app_manager import lookup_service_brick
 from ryu.controller import ofp_event
@@ -42,6 +42,7 @@ class MULTIPATH_13(app_manager.RyuApp):
     _CONTEXTS = {
         'switches': switches.Switches,
     }
+    CONF = cfg.CONF
 
     def __init__(self, *args, **kwargs):
         super(MULTIPATH_13, self).__init__(*args, **kwargs)
@@ -61,24 +62,22 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.experimental_thread = hub.spawn(self.run_experiment)
         self.link_flag = False
 
-    @set_ev_cls(ofp_event.EventOFPErrorMsg,
-                [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, [HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def error_msg_handler(self, ev):
         msg = ev.msg
-        self.logger.debug('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s',
+        self.logger.error('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s',
                           msg.type, msg.code, utils.hex_array(msg.data))
 
-    @set_ev_cls(ofp_event.EventOFPStateChange,
-                [MAIN_DISPATCHER, DEAD_DISPATCHER])
+    @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
         datapath = ev.datapath
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
-                self.logger.debug('register datapath: %016x', datapath.id)
+                self.logger.info('register datapath: %016x', datapath.id)
                 self.datapaths[datapath.id] = datapath
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
-                self.logger.debug('unregister datapath: %016x', datapath.id)
+                self.logger.info('unregister datapath: %016x', datapath.id)
                 del self.datapaths[datapath.id]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -92,7 +91,6 @@ class MULTIPATH_13(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.add_flow(datapath, 0, match, actions)
-        self.logger.info("switch:%s connected", dpid)
 
     def run_echo(self):
         while True:
@@ -131,12 +129,12 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.logger.warn("failed to get echo delay to dpid(%s), error: %s", dpid, error)
 
     def _monitor(self):
-        while len(self.link_delay) != len(self.network.edges):
+        while len(self.switch_service.link_delay) != len(self.network.edges):
             hub.sleep(10)
-            self.logger.info(f"query links, expect {len(self.network.edges)}, now {len(self.link_delay)}")
-            link_list = get_all_link(self)
+            self.logger.info(f"query links, expect {len(self.network.edges)}, "
+                             f"now {len(self.switch_service.link_delay)}")
             self.lock.acquire()
-            for link in link_list:
+            for link, delay in self.switch_service.link_delay.items():
                 edge_key = (link.src.dpid, link.dst.dpid)
                 if link.dst.dpid < link.src.dpid:
                     edge_key = (link.dst.dpid, link.src.dpid)
@@ -150,12 +148,8 @@ class MULTIPATH_13(app_manager.RyuApp):
 
                 # record delay time
                 if edge_key not in self.link_delay:
-                    send_time = self.switch_service.ports[link.src].timestamp
-                    if send_time is None:
-                        continue
-                    recv_time = self.switch_service.links[link]
-                    self.link_delay[edge_key] = recv_time - send_time
-                    self.network.edges[edge_key]['weight'] = recv_time - send_time
+                    self.link_delay[edge_key] = delay
+                    self.network.edges[edge_key]['weight'] = delay
 
             self.lock.release()
         self.link_flag = True
