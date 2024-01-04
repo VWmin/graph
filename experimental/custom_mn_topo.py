@@ -26,13 +26,9 @@ def int_to_16bit_hex_string(number: int):
 
 
 def int_to_ip_address(number: int):
-    if 1 <= number <= 255:
-        return f"10.0.0.{number}/16"
-    else:
-        number -= 255
-        mod = (number % 256) - 1
-        ip3 = (number // 256) + 1
-        return f"10.0.{ip3}.{mod}/16"
+    third_octet = (number - 1) // 254
+    fourth_octet = (number - 1) % 254 + 1
+    return f"10.0.{third_octet}.{fourth_octet}"
 
 
 class MyTopo(Topo):
