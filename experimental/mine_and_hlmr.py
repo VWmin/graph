@@ -1,4 +1,5 @@
 import copy
+import math
 import random
 
 import full_pll
@@ -141,8 +142,53 @@ def test_with_random_graph():
     hlmr_instance.statistic()
 
 
+def chose_random_edge_from_routing_trees(routing_trees):
+    s = random.choice(list(routing_trees.keys()))
+    tree = routing_trees[s]
+    i, j = random.choice(list(tree.edges))
+    i, j = (j, i) if j < i else (i, j)
+    return s, i, j
+
+
+def test_with_edge_change():
+    g = random_graph.gt_itm_600()
+    number_of_nodes = g.number_of_nodes()
+    b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
+    b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
+    d_lo, d_hi = 1, 10
+    d_req_lo, d_req_hi = 50, 100
+
+    random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
+    random_graph.add_attr_with_random_value(g, "weight", d_lo, d_hi)
+    S = util.random_s_with_number(number_of_nodes, 10)
+    S2R = util.random_s2r_with_number(number_of_nodes, 10, S)
+    B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
+    D = util.random_d_with_range(S, d_req_lo, d_req_hi)
+
+    print(S2R)
+
+    mine_instance = heat_degree_matrix.HeatDegreeModel(g, D, B, copy.deepcopy(S2R))
+
+    s, i, j = chose_random_edge_from_routing_trees(mine_instance.routing_trees)
+
+    print("raw routing trees >>>")
+    print(f"\t{mine_instance.routing_trees[s]}")
+
+    # 0: *2; 1: *inf
+    # ch = random.randint(0, 1)
+    ch = 1
+    raw_val = mine_instance.g[i][j]['weight']
+    new_val = raw_val * 2 if ch == 0 else math.inf
+    print(f"\n\nchanging edge delay from {raw_val} to {new_val}")
+    mine_instance.change_delay(i, j, new_val)
+    print(f"cost: {mine_instance.last_time()}\n\n")
+
+    print("maintained routing trees >>>")
+    print(f"\t{mine_instance.routing_trees[s]}")
+
+
 if __name__ == '__main__':
     # test_ts_example()
     # test_with_random_graph()
-    run_test_ts_example_with_random_op_multi_times()
-
+    # run_test_ts_example_with_random_op_multi_times()
+    test_with_edge_change()

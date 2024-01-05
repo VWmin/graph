@@ -61,8 +61,11 @@ class HeatDegreeBase:
     def update_heat_degree_ij(self, i, j):
         if not self.g.has_edge(i, j):
             return inf, inf, True
+        # available: does this edge may congestion?
         _sum, available = self.check_bandwidth_limit(i, j)
+        # a: heat degree if no congestion
         a = self.g[i][j]['weight'] / (self.g.number_of_nodes() * self.__max_delay__)
+        # b: heat degree if may congestion
         b = pow(_sum / self.g[i][j]['bandwidth'], 2)
         return a, b, available
 
@@ -240,7 +243,7 @@ class HeatDegreeModel:
 
         # 查看之前作为候选边的边，是否在修改后仍是侯选边
         for u, v in self.g.edges:
-            u, v = (v, u) if v < u else u, v
+            u, v = (v, u) if v < u else (u, v)
             if len(self._heat_base.relevance[u][v]) != 0:
                 for s in list(self._heat_base.relevance[u][v].keys()):
                     self._heat_base.relevance[u][v][s] = 0
