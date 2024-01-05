@@ -47,7 +47,7 @@ class ExperimentInfo:
             for r in self.S2R[s]:
                 output["s2r"][s].append(r)
 
-        with open('result/mine/ev_setting.json', 'w') as json_file:
+        with open('ev_setting.json', 'w') as json_file:
             json.dump(output, json_file, indent=4)
 
     def src_to_group_ip(self, src):

@@ -3,7 +3,8 @@ import linecache
 import os
 import re
 
-exp_type = "mine"
+# exp_type = "mine"
+exp_type = "hlmr"
 
 with open(f'result/{exp_type}/ev_setting.json', 'r') as json_file:
     ev = json.load(json_file)
@@ -24,15 +25,24 @@ for root, dirs, files in os.walk(iperf_path):
         group_to_file_names[group].append(file_name)
 
     for group in group_to_file_names:
-        print(f"\tgroup {group}:")
+        # print(f"\tgroup {group}:")
+        jitter_arr = []
+        bw = 0
         for file_name in group_to_file_names[group]:
             file_path = os.path.join(root, file_name)
             line = linecache.getline(file_path, 9)
             match_bw = re.search(r'(\d+\s+[K,M]bits/sec)', line)
             match_ms = re.search(r'(\d+\.\d+\s+ms)', line)
             match_rate = re.search(r'(\d+/\d+)', line)
-            bw, jitter, rate = match_bw.group(1), match_ms.group(1), match_rate.group(1)
-            print(f"\t\tbw: {bw}, jitter: {jitter}, lost rate: {rate}")
+            bw, jitter, rate = (round(int(match_bw.group(1).split(" ")[0]) * 0.001, 3),
+                                float(match_ms.group(1)[:-3]),
+                                match_rate.group(1))
+            # print(f"\t\tbw: {bw}, jitter: {jitter}, lost rate: {rate}")
+            jitter_arr.append(jitter)
+        used_bw = bw * len(routing_trees[ev["group_to_src"][group]])
+        bw_use_rate = round(used_bw / ev["total_bw"] * 100, 3)
+        avg_jitter = round(sum(jitter_arr) / len(jitter_arr), 2)
+        print(bw_use_rate)
 
 print("delay >>>")
 for root, dirs, files in os.walk(libtins_path):
@@ -42,9 +52,15 @@ for root, dirs, files in os.walk(libtins_path):
         group_to_file_names[group].append(file_name)
 
     for group in group_to_file_names:
-        print(f"\tgroup {group}:")
+        # print(f"\tgroup {group}:")
+        delay_arr = []
         for file_name in group_to_file_names[group]:
             file_path = os.path.join(root, file_name)
             with open(file_path, 'r') as file:
                 cost_arr = [float(line.split(" ")[-1]) for line in file]
-                print(f"\t\tdelay: {round(sum(cost_arr) / len(cost_arr), 2)} ms")
+                delay = round(sum(cost_arr) / len(cost_arr), 2)
+                # print(f"\t\tdelay: {} ms")
+                delay_arr.append(delay)
+        print(round(sum(delay_arr) / len(delay_arr), 2))
+
+print(ev["total_bw"])
