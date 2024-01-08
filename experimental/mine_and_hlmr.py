@@ -2,7 +2,6 @@ import copy
 import math
 import random
 
-import full_pll
 import hlmr
 import heat_degree_matrix
 import random_graph
@@ -150,7 +149,14 @@ def chose_random_edge_from_routing_trees(routing_trees):
     return s, i, j
 
 
-def test_with_edge_change():
+def cal_tree_weight(g, tree):
+    w = 0
+    for u, v in tree.edges:
+        w += g[u][v]['weight']
+    return w
+
+
+def test_with_edge_change(mine_times, hlmr_times):
     g = random_graph.gt_itm_600()
     number_of_nodes = g.number_of_nodes()
     b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
@@ -165,30 +171,35 @@ def test_with_edge_change():
     B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
     D = util.random_d_with_range(S, d_req_lo, d_req_hi)
 
-    print(S2R)
-
+    # mine instance
     mine_instance = heat_degree_matrix.HeatDegreeModel(g, D, B, copy.deepcopy(S2R))
-
     s, i, j = chose_random_edge_from_routing_trees(mine_instance.routing_trees)
+    mine_instance.change_delay(i, j, math.inf)
+    mine_times.append(mine_instance.last_time())
 
-    print("raw routing trees >>>")
-    print(f"\t{mine_instance.routing_trees[s]}")
+    # hlmr instance
+    g_copy = copy.deepcopy(g)
+    hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
+    s, i, j = chose_random_edge_from_routing_trees(hlmr_instance.routing_trees)
+    g_copy[i][j]['weight'] = math.inf
+    new_hlmr_instance = hlmr.HLMR(g_copy, D, B, S2R)
+    hlmr_times.append(new_hlmr_instance.init_time())
 
-    # 0: *2; 1: *inf
-    # ch = random.randint(0, 1)
-    ch = 1
-    raw_val = mine_instance.g[i][j]['weight']
-    new_val = raw_val * 2 if ch == 0 else math.inf
-    print(f"\n\nchanging edge delay from {raw_val} to {new_val}")
-    mine_instance.change_delay(i, j, new_val)
-    print(f"cost: {mine_instance.last_time()}\n\n")
 
-    print("maintained routing trees >>>")
-    print(f"\t{mine_instance.routing_trees[s]}")
+def test_edge_change_many_times():
+    mine_times, hlmr_times = [], []
+    for i in range(10):
+        test_with_edge_change(mine_times, hlmr_times)
+    print("mine times >>> ")
+    for t in mine_times:
+        print(f"\t{t}")
+    print("hlmr times >>> ")
+    for t in hlmr_times:
+        print(f"\t{t}")
 
 
 if __name__ == '__main__':
     # test_ts_example()
     # test_with_random_graph()
     # run_test_ts_example_with_random_op_multi_times()
-    test_with_edge_change()
+    test_edge_change_many_times()
