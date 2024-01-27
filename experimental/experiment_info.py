@@ -25,6 +25,8 @@ class ExperimentInfo:
         self.B = random_b_with_range(self.S, b_req_lo, b_req_hi)
         self.D = random_d_with_range(self.S, d_req_lo, d_req_hi)
 
+        self.stp = True
+
         print(f"src set is {self.S}")
         print(f"src to recv is {self.S2R}")
         print(f"total bw is {self.total_bw}")

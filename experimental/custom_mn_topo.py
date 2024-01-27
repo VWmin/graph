@@ -50,7 +50,10 @@ class MyTopo(Topo):
         for n in self.graph.nodes:
             s_name = f"s{n}"
             h_name = f"h{n}"
-            self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n))
+            if self.info.stp:
+                self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n), stp=True, failMode='standalone')
+            else:
+                self.addSwitch(s_name, dpid=int_to_16bit_hex_string(n))
             if n in terminals:
                 # Add single host on designated switches
                 self.addHost(h_name, ip=int_to_ip_address(n))
@@ -89,14 +92,15 @@ class MininetEnv:
     def start(self):
         self.net.start()
 
-        cli_thread = threading.Thread(target=self.run_mn_cli)
-        cmd_thread = threading.Thread(target=self.run_mn_cmd_server)
+        threads = [threading.Thread(target=self.run_mn_cli), threading.Thread(target=self.run_mn_cmd_server)]
+        if self.info.stp:
+            threads.append(threading.Thread(target=self.ping_connectivity))
 
-        cli_thread.start()
-        cmd_thread.start()
+        for thread in threads:
+            thread.start()
 
-        cli_thread.join()
-        cmd_thread.join()
+        for thread in threads:
+            thread.join()
 
         self.net.stop()
 
@@ -108,6 +112,19 @@ class MininetEnv:
     def run_mn_cli(self):
         CLI(self.net)
         self.finished = True
+
+    def ping_connectivity(self):
+        hosts_to_ping = random.sample(self.info.S2R[random.choice(list(self.info.S))], 2)
+        ha, hb = self.net.get(f'h{hosts_to_ping[0]}'), self.net.get(f"h{hosts_to_ping[1]}")
+        t1 = time.time()
+        connected, turn = False, 1
+        while not connected:
+            result = ha.cmd('ping -c 1', hb.IP())
+            print(f"turn {turn}, result: {result}")
+            if "1 packets transmitted, 1 received" in result:
+                connected = True
+        t2 = time.time()
+        print(f"cost: {t2 - t1}")
 
     def run_mn_cmd_server(self):
         self.server.bind(('127.0.0.1', 8889))
