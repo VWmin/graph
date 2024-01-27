@@ -20,12 +20,12 @@ class ExperimentInfo:
 
         self.total_bw = set_random_bw(self.graph, "bandwidth", b_lo, b_hi)
         add_attr_with_random_value(self.graph, "weight", d_lo, d_hi)
-        self.S = random_s_from_graph(self.graph, 1)
-        self.S2R = random_s2r_from_graph(self.graph, 3, self.S)
+        self.S = random_s_from_graph(self.graph, 5)
+        self.S2R = random_s2r_from_graph(self.graph, 5, self.S)
         self.B = random_b_with_range(self.S, b_req_lo, b_req_hi)
         self.D = random_d_with_range(self.S, d_req_lo, d_req_hi)
 
-        self.stp = False
+        self.stp = True
 
         print(f"src set is {self.S}")
         print(f"src to recv is {self.S2R}")
