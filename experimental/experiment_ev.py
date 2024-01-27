@@ -1,7 +1,11 @@
 import socket
 import pickle
 
+import cherrypy
+import zerorpc
 import sys
+
+import random_graph
 
 sys.path.append('/home/fwy/Desktop/graph')
 sys.path.append('/home/fwy/Desktop/graph/experimental')
@@ -9,52 +13,18 @@ sys.path.append('/home/fwy/Desktop/graph/experimental')
 from experiment_info import ExperimentInfo
 
 
-def run_server(info: ExperimentInfo):
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('127.0.0.1', 8888))
-    server.listen(1)
+class ExpInfoServer:
+    def __init__(self, info):
+        self.info = info
 
-    print("Server listening on port 8888...")
-
-    while True:
-        connection, address = server.accept()
-        print("Connection from:", address)
-
-        data = pickle.dumps(info)
-        connection.sendall(data)
-
-        connection.close()
-    # server.close()
-
-
-def acquire_info() -> ExperimentInfo:
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('127.0.0.1', 8888))
-    data, buffer_size = b"", 4096
-    while True:
-        chunk = client.recv(buffer_size)
-        if not chunk:
-            break
-        data += chunk
-    # id starts from 0.
-    info: ExperimentInfo = pickle.loads(data)
-    client.close()
-    return info
-
-
-def send_ok():
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('127.0.0.1', 8889))
-    msg = "ok"
-    msg_bytes = msg.encode('utf-8')
-    client.sendall(msg_bytes)
-    client.close()
+    @cherrypy.expose
+    def exp_info(self):
+        return pickle.dumps(self.info)
 
 
 if __name__ == "__main__":
-    import random_graph
+    graph = random_graph.demo_graph()
+    expinfo = ExperimentInfo(graph)
 
-    g = random_graph.demo_graph()
-    # g = random_graph.gt_itm_600()
-    g = random_graph.gt_itm_100()
-    run_server(ExperimentInfo(g))
+    cherrypy.config.update({'server.socket_port': 8000})
+    cherrypy.quickstart(ExpInfoServer(expinfo))

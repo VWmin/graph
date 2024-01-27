@@ -1,11 +1,13 @@
+import pickle
 import random
 import signal
-import socket
 import subprocess
 import sys
 import threading
 import time
 
+import cherrypy
+import requests
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.net import Mininet
@@ -14,8 +16,6 @@ from mininet.topo import Topo
 
 from mininet.util import customClass
 from mininet.link import TCLink
-
-import experiment_ev
 
 
 def int_to_16bit_hex_string(number: int):
@@ -67,79 +67,16 @@ class MyTopo(Topo):
                          bw=self.graph[n1][n2]['bandwidth'], delay=f"{self.graph[n1][n2]['weight']}ms")
 
 
-class MininetEnv:
-    # Rate limit links to 10Mbps
-    link = customClass({'tc': TCLink}, 'tc,bw=10')
+class ExpExecServer:
+    def __init__(self, info, net):
+        self.info = info
+        self.net = net
 
-    def __init__(self):
-        self.finished = False
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.info = experiment_ev.acquire_info()
-        custom_topo = MyTopo(self.info)
-        controller = RemoteController('c0')
-        # self.net = Mininet(topo=custom_topo, controller=controller, link=MininetEnv.link)
-        self.net = Mininet(topo=custom_topo, controller=controller)
-
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-    def signal_handler(self, sig, frame):
-        print("Received signal to exit.")
-        self.server.close()
-        if self.net is not None:
-            self.net.stop()
-        sys.exit(0)
-
-    def start(self):
-        self.net.start()
-
-        threads = [threading.Thread(target=self.run_mn_cli), threading.Thread(target=self.run_mn_cmd_server)]
-        if self.info.stp:
-            threads.append(threading.Thread(target=self.ping_connectivity))
-
-        for thread in threads:
-            thread.start()
-
-        for thread in threads:
-            thread.join()
-
-        self.net.stop()
-
-    @staticmethod
-    def run_command_async(host, command):
-        # 异步运行命令
-        return host.popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    def run_mn_cli(self):
-        CLI(self.net)
-        self.finished = True
-
-    def ping_connectivity(self):
-        hosts_to_ping = random.sample(self.info.S2R[random.choice(list(self.info.S))], 2)
-        ha, hb = self.net.get(f'h{hosts_to_ping[0]}'), self.net.get(f"h{hosts_to_ping[1]}")
-        t1 = time.time()
-        connected, turn = False, 1
-        while not connected:
-            result = ha.cmd('ping -c 1', hb.IP())
-            print(f"turn {turn}, result: {result}")
-            if "1 packets transmitted, 1 received" in result:
-                connected = True
-        t2 = time.time()
-        print(f"cost: {t2 - t1}")
-
-    def run_mn_cmd_server(self):
-        self.server.bind(('127.0.0.1', 8889))
-        self.server.listen(1)
-
-        connection, address = self.server.accept()
-        raw_msg = connection.recv(1024)
-        msg = raw_msg.decode()
-        if msg and msg == "ok":
-            self.run_script()
-            time.sleep(15)
-            self.run_iperf()
-        connection.close()
-
-        self.server.close()
+    @cherrypy.expose
+    def exec(self):
+        self.run_script()
+        time.sleep(15)
+        self.run_iperf()
 
     def run_script(self):
         print("\nstarting script")
@@ -160,6 +97,75 @@ class MininetEnv:
         host = self.net.getNodeByName(hostname)
         self.run_command_async(host, cmd)
         print(f"{hostname} {cmd}")
+
+    @staticmethod
+    def run_command_async(host, command):
+        # 异步运行命令
+        return host.popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def _get_exp_info():
+    response = requests.get("http://localhost:8000/exp_info")
+    return pickle.loads(response.content)
+
+
+class MininetEnv:
+    # Rate limit links to 10Mbps
+    link = customClass({'tc': TCLink}, 'tc,bw=10')
+
+    def __init__(self):
+        self.finished = False
+        self.info = _get_exp_info()
+        custom_topo = MyTopo(self.info)
+        controller = RemoteController('c0')
+        # self.net = Mininet(topo=custom_topo, controller=controller, link=MininetEnv.link)
+        self.net = Mininet(topo=custom_topo, controller=controller)
+
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        print("Received signal to exit.")
+        if self.net is not None:
+            self.net.stop()
+        sys.exit(0)
+
+    def start(self):
+        self.net.start()
+
+        threads = [threading.Thread(target=self.run_mn_cli), threading.Thread(target=self.run_exp_exec_server)]
+        if self.info.stp:
+            threads.append(threading.Thread(target=self.ping_connectivity))
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        self.net.stop()
+
+    def run_mn_cli(self):
+        print("run mininet cli")
+        CLI(self.net)
+        self.finished = True
+
+    def run_exp_exec_server(self):
+        print("run exp exec server")
+        cherrypy.config.update({'server.socket_port': 8001})
+        cherrypy.quickstart(ExpExecServer(self.info, self.net))
+
+    def ping_connectivity(self):
+        hosts_to_ping = random.sample(self.info.S2R[random.choice(list(self.info.S))], 2)
+        ha, hb = self.net.get(f'h{hosts_to_ping[0]}'), self.net.get(f"h{hosts_to_ping[1]}")
+        t1 = time.time()
+        connected, turn = False, 1
+        while not connected:
+            result = ha.cmd('ping -c 1', hb.IP())
+            print(f"turn {turn}, result: {result}")
+            if "1 packets transmitted, 1 received" in result:
+                connected = True
+        t2 = time.time()
+        print(f"cost: {t2 - t1}")
 
 
 if __name__ == '__main__':

@@ -14,10 +14,13 @@
 # limitations under the License.
 #
 import json
+import pickle
 import threading
 import time
 
 import networkx as nx
+import requests
+import zerorpc
 from ryu import utils, cfg
 from ryu.base import app_manager
 from ryu.base.app_manager import lookup_service_brick
@@ -38,6 +41,15 @@ import heat_degree_matrix
 import hlmr
 
 
+def _get_exp_info():
+    response = requests.get("http://localhost:8000/exp_info")
+    return pickle.loads(response.content)
+
+
+def _start_exp():
+    requests.get("http://localhost:8001/exec")
+
+
 class MULTIPATH_13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
@@ -53,7 +65,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.datapaths = {}
         self.echo_delay = {}
         self.link_delay = {}
-        self.experiment_info = experimental.experiment_ev.acquire_info()
+        self.experiment_info = _get_exp_info()
         self.network = self.experiment_info.graph
         self.network.add_node(0)  # dummy node
         self.lock = threading.Lock()
@@ -327,7 +339,7 @@ class MULTIPATH_13(app_manager.RyuApp):
 
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
         hub.sleep(3)
-        experimental.experiment_ev.send_ok()
+        _start_exp()
         self.logger.info("send ok to start script.")
 
     def install_routing_trees(self, trees, S2R):
