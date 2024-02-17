@@ -98,6 +98,10 @@ def gt_itm_100():
     return gt_itm_example(r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts100/ts100-0.alt")
 
 
+def gt_itm_ts(n: int):
+    return gt_itm_example(f"/home/vwmin/Desktop/gt-itm-out/ts{n}-0.alt")
+
+
 def gt_itm_example(filename) -> nx.Graph:
     g = nx.Graph()
     with open(filename, "r") as f:

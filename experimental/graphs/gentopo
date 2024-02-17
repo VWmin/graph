@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/gt-itm/bin/itm ts100 ts200 ts300 ts400 ts500 ts600
