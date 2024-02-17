@@ -91,11 +91,11 @@ def demo_graph_kmb():
 
 
 def gt_itm_600():
-    return gt_itm_example(r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts600/ts600-0.alt")
+    return gt_itm_example(r"/home/vwmin/Desktop/sample-graphs/ts/ts600/ts600-0.alt")
 
 
 def gt_itm_100():
-    return gt_itm_example(r"/home/fwy/Desktop/graph/experimental/sample-graphs/ts/ts100/ts100-0.alt")
+    return gt_itm_example(r"/home/vwmin/Desktop/sample-graphs/ts/ts100/ts100-0.alt")
 
 
 def gt_itm_ts(n: int):
@@ -130,4 +130,9 @@ def as_733_example():
 
 
 if __name__ == '__main__':
-    pass
+    print(gt_itm_100())
+    print(gt_itm_ts(100))
+    print(gt_itm_ts(175))
+    print(gt_itm_ts(250))
+    print(gt_itm_ts(325))
+    print(gt_itm_ts(400))

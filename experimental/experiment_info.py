@@ -11,8 +11,8 @@ class ExperimentInfo:
         for edge in graph.edges:
             self.graph.add_edge(edge[0] + 1, edge[1] + 1)
 
-        b_lo, b_hi = 5, 10
-        b_req_lo, b_req_hi = 0.5, 1
+        b_lo, b_hi = 3, 6
+        b_req_lo, b_req_hi = 1, 2
         d_lo, d_hi = 1, 2
         d_req_lo, d_req_hi = 50, 100
 

@@ -3,9 +3,9 @@ import linecache
 import os
 import re
 
-exp_type = "mine"
+# exp_type = "mine"
 # exp_type = "hlmr"
-# exp_type = "igmp"
+exp_type = "igmp"
 # exp_type = "stp"
 igmp = exp_type == "igmp"
 
