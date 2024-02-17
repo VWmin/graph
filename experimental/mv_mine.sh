@@ -1,4 +1,6 @@
+mkdir result/mine/iperf
+mkdir result/mine/libtins
 mv 224* result/mine/iperf
-mv g* result/mine/libtins
+mv *-eth0 result/mine/libtins
 mv routing_trees.json result/mine/
-mv ev_info.json result/mine/
+cp ev_setting.json result/mine/

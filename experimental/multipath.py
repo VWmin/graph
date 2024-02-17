@@ -329,10 +329,11 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.logger.info(f"start experiment at {time.time()}")
 
         self.lock.acquire()
-        # instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
-        #                                               self.experiment_info.B, self.experiment_info.S2R)
-        instance = hlmr.HLMR(self.network, self.experiment_info.D,
-                             self.experiment_info.B, self.experiment_info.S2R)
+        instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D,
+                                                      self.experiment_info.B, self.experiment_info.S2R)
+        # instance = hlmr.HLMR(self.network, self.experiment_info.D,
+        #                      self.experiment_info.B, self.experiment_info.S2R)
+        # instance = STPInstance(self.network, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
 
         self.install_routing_trees(instance.routing_trees, self.experiment_info.S2R)
@@ -406,3 +407,32 @@ class MULTIPATH_13(app_manager.RyuApp):
         match = parser.OFPMatch(eth_type=0x800, ipv4_dst=multicast_ip)
         actions = [parser.OFPActionOutput(1)]
         self.add_flow(datapath, 1, match, actions)
+
+
+class STPInstance:
+    def __init__(self, g: nx.Graph, delay_limit, s2r):
+        self._g = g
+        self._delay_limit = delay_limit
+        self._src2recv = s2r
+
+        self.routing_trees = {}
+        self.op_histories = []
+
+        self.routing()
+
+    def routing(self):
+        t = time.time()
+        trees = {}
+        for s in self._src2recv:
+            trees[s] = {}
+            self.routing_trees[s] = nx.DiGraph()
+            for r in self._src2recv[s]:
+                cost, path = nx.single_source_dijkstra(self._g, s, r)
+                if not path or cost > self._delay_limit[s]:
+                    trees[s][r] = []
+                    continue
+                for i in range(len(path) - 1):
+                    self.routing_trees[s].add_edge(path[i], path[i+1])
+
+        self.op_histories.append(("routing", time.time() - t))
+

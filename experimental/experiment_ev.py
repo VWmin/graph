@@ -24,7 +24,7 @@ class ExpInfoServer:
 
 if __name__ == "__main__":
     # graph = random_graph.demo_graph()
-    graph = random_graph.gt_itm_100()
+    graph = random_graph.gt_itm_ts(775)
     expinfo = ExperimentInfo(graph)
 
     cherrypy.config.update({'server.socket_port': 8000})
