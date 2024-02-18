@@ -2,6 +2,7 @@ import itertools
 import time
 
 import networkx as nx
+import numpy as np
 
 import heat_degree_matrix
 import relavence_matrix

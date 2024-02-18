@@ -1,5 +1,8 @@
 import networkx as nx
 import time
+
+import numpy as np
+
 import full_pll
 import util
 import random_graph
@@ -133,6 +136,8 @@ class HeatDegreeBase:
         if self.__distance__ is None:
             t1 = time.time()
             self.__distance__ = nx.floyd_warshall_numpy(self.g, nodelist=range(self.g.number_of_nodes()))
+            # self.__distance__ = general_floyd(self.g)
+            # self.__distance__ = general_floyd2(self.g)
             self.op_history.append(("build_floyd_distance", time.time() - t1))
         return self.__distance__[u][v]
 
@@ -143,6 +148,49 @@ class HeatDegreeBase:
     def init_time(self):
         return sum(map(lambda e: e[1], self.op_history))
 
+
+def general_floyd(G: nx.Graph):
+    A = nx.to_numpy_array(
+        G, None, multigraph_weight=min, nonedge=np.inf
+    )
+    n, m = A.shape
+    np.fill_diagonal(A, 0)
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                A[i][j] = min(A[i][j], A[i][k] + A[k][j])
+    # for i in range(n):
+    #     # The second term has the same shape as A due to broadcasting
+    #     A = np.minimum(A, A[i, :][np.newaxis, :] + A[:, i][:, np.newaxis])
+    return A
+
+
+def general_floyd2(G: nx.Graph, weight="weight"):
+    from collections import defaultdict
+
+    # dictionary-of-dictionaries representation for dist and pred
+    # use some defaultdict magick here
+    # for dist the default is the floating point inf value
+    dist = defaultdict(lambda: defaultdict(lambda: float("inf")))
+    for u in G:
+        dist[u][u] = 0
+    # initialize path distance dictionary to be the adjacency matrix
+    # also set the distance to self to 0 (zero diagonal)
+    undirected = not G.is_directed()
+    for u, v, d in G.edges(data=True):
+        e_weight = d.get(weight, 1.0)
+        dist[u][v] = min(e_weight, dist[u][v])
+        if undirected:
+            dist[v][u] = min(e_weight, dist[v][u])
+    for w in G:
+        dist_w = dist[w]  # save recomputation
+        for u in G:
+            dist_u = dist[u]  # save recomputation
+            for v in G:
+                d = dist_u[w] + dist_w[v]
+                if dist_u[v] > d:
+                    dist_u[v] = d
+    return dict(dist)
 
 class HeatDegreeModel:
     def __init__(self, g: nx.graph, delay_limit, bandwidth_require, src2recv):
@@ -162,10 +210,10 @@ class HeatDegreeModel:
             # self.routing_trees[s] = {}
             # for r in self.src2recv[s]:
             #     self.__single_source_routing__(s, r)
-            ts = KMB(self.g, list(self.src2recv[s]) + [s],
-                     weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
-            self.routing_trees[s] = nx.DiGraph()
-            convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
+            self.routing_trees[s] = KMB(self.g, list(self.src2recv[s]) + [s],
+                                        weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+            # self.routing_trees[s] = nx.DiGraph()
+            # convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
 
         self.op_history.append(("routing", time.time() - t1))
 

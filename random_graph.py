@@ -145,7 +145,7 @@ def gt_itm_r(n):
 
 
 if __name__ == '__main__':
-    print(gt_itm_100())
+    print(gt_itm_600())
     print(gt_itm_ts(100))
     print(gt_itm_ts(175))
     print(gt_itm_ts(250))
