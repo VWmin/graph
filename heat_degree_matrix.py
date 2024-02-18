@@ -223,7 +223,9 @@ class HeatDegreeModel:
         self.src2recv[s].remove(r)
         terminals = self.src2recv[s] | {s}
         node = r
-        while self.routing_trees[s].degree(node) == 1 and node not in terminals:
+        while (self.routing_trees[s].has_node(node)
+               and self.routing_trees[s].degree(node) == 1
+               and node not in terminals):
             next_node = next(self.routing_trees[s].neighbors(node))
             self.routing_trees[s].remove_node(node)
             node = next_node

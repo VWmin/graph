@@ -129,6 +129,21 @@ def as_733_example():
                 g.add_edge(arr[0], arr[1])
 
 
+def gt_itm_r(n):
+    if n == 100:
+        return random_graph(100, .04, 1)
+    elif n == 175:
+        return random_graph(175, .02, 1)
+    elif n == 250:
+        return random_graph(250, .01, 1)
+    elif n == 325:
+        return random_graph(325, .01, 1)
+    elif n == 400:
+        return random_graph(400, .009, 1)
+    else:
+        return None
+
+
 if __name__ == '__main__':
     print(gt_itm_100())
     print(gt_itm_ts(100))

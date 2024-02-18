@@ -33,17 +33,19 @@ def test_ts_example():
 
 
 def test_ts_example_with_random_op():
-    g = random_graph.gt_itm_example()
+    g = random_graph.gt_itm_ts(100)
     number_of_nodes = g.number_of_nodes()
-    b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
-    b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
-    d_lo, d_hi = 1, 10
+    b_lo, b_hi = 3, 6  # use half of the bandwidth for multicast
+    b_req_lo, b_req_hi = 1, 2  # per multicast required
+    d_lo, d_hi = 1, 2
     d_req_lo, d_req_hi = 50, 100
+
+    random.seed(42)
 
     random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
     random_graph.add_attr_with_random_value(g, "weight", d_lo, d_hi)
-    S = util.random_s_with_number(number_of_nodes, 10)
-    S2R = util.random_s2r_with_number(number_of_nodes, 10, S)
+    S = util.random_s_with_number(number_of_nodes, 5)
+    S2R = util.random_s2r_with_number(number_of_nodes, 5, S)
     B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
     D = util.random_d_with_range(S, d_req_lo, d_req_hi)
 
@@ -101,17 +103,34 @@ def run_test_ts_example_with_random_op_multi_times():
             add_times.append((mine_times[j], hlmr_times[j]))
         for j in range(6, 11):
             remove_times.append((mine_times[j], hlmr_times[j]))
-    import time
-    with open(f"group_op_test-{time.time()}", 'w') as f:
-        for t1, t2 in init_tims:
-            f.write(f"{t1} {t2}\n")
-        f.write("\n")
-        for t1, t2 in add_times:
-            f.write(f"{t1} {t2}\n")
-        f.write("\n")
-        for t1, t2 in remove_times:
-            f.write(f"{t1} {t2}\n")
-        f.write("\n")
+    print()
+    s1, s2 = 0, 0
+    for t1, t2 in init_tims:
+        s1 += t1
+        s2 += t2
+    print(f"{s1 / len(init_tims)} {s2 / len(init_tims)}")
+    s1, s2 = 0, 0
+    for t1, t2 in add_times:
+        s1 += t1
+        s2 += t2
+    print(f"{s1 / len(add_times)} {s2 / len(add_times)}")
+    s1, s2 = 0, 0
+    for t1, t2 in remove_times:
+        s1 += t1
+        s2 += t2
+    print(f"{s1 / len(remove_times)} {s2 / len(remove_times)}")
+
+    # import time
+    # with open(f"group_op_test-{time.time()}", 'w') as f:
+    #     for t1, t2 in init_tims:
+    #         f.write(f"{t1} {t2}\n")
+    #     f.write("\n")
+    #     for t1, t2 in add_times:
+    #         f.write(f"{t1} {t2}\n")
+    #     f.write("\n")
+    #     for t1, t2 in remove_times:
+    #         f.write(f"{t1} {t2}\n")
+    #     f.write("\n")
 
 
 def test_with_random_graph():
@@ -156,18 +175,19 @@ def cal_tree_weight(g, tree):
     return w
 
 
-def test_with_edge_change(mine_times, hlmr_times):
-    g = random_graph.gt_itm_600()
+def test_with_edge_change(mine_times, hlmr_times, g):
     number_of_nodes = g.number_of_nodes()
-    b_lo, b_hi = 5e6 / 2, 10e6 / 2  # use half of the bandwidth for multicast
-    b_req_lo, b_req_hi = 512 * 1e3, 1e6  # per multicast required
-    d_lo, d_hi = 1, 10
+    b_lo, b_hi = 3, 6  # use half of the bandwidth for multicast
+    b_req_lo, b_req_hi = 1, 2  # per multicast required
+    d_lo, d_hi = 1, 2
     d_req_lo, d_req_hi = 50, 100
+
+    random.seed(42)
 
     random_graph.add_attr_with_random_value(g, "bandwidth", int(b_lo), int(b_hi))
     random_graph.add_attr_with_random_value(g, "weight", d_lo, d_hi)
-    S = util.random_s_with_number(number_of_nodes, 10)
-    S2R = util.random_s2r_with_number(number_of_nodes, 10, S)
+    S = util.random_s_with_number(number_of_nodes, 5)
+    S2R = util.random_s2r_with_number(number_of_nodes, 5, S)
     B = util.random_d_with_range(S, int(b_req_lo), int(b_req_hi))
     D = util.random_d_with_range(S, d_req_lo, d_req_hi)
 
@@ -189,13 +209,15 @@ def test_with_edge_change(mine_times, hlmr_times):
 def test_edge_change_many_times():
     mine_times, hlmr_times = [], []
     for i in range(10):
-        test_with_edge_change(mine_times, hlmr_times)
+        g = random_graph.gt_itm_ts(400)
+        test_with_edge_change(mine_times, hlmr_times, g)
     print("mine times >>> ")
     for t in mine_times:
         print(f"\t{t}")
     print("hlmr times >>> ")
     for t in hlmr_times:
         print(f"\t{t}")
+    print(f"{sum(mine_times) / len(mine_times)} {sum(hlmr_times) / len(hlmr_times)}")
 
 
 if __name__ == '__main__':
