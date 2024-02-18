@@ -210,10 +210,10 @@ class HeatDegreeModel:
             # self.routing_trees[s] = {}
             # for r in self.src2recv[s]:
             #     self.__single_source_routing__(s, r)
-            self.routing_trees[s] = KMB(self.g, list(self.src2recv[s]) + [s],
-                                        weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
-            # self.routing_trees[s] = nx.DiGraph()
-            # convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
+            ts = KMB(self.g, list(self.src2recv[s]) + [s],
+                     weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+            self.routing_trees[s] = nx.DiGraph()
+            convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
 
         self.op_history.append(("routing", time.time() - t1))
 

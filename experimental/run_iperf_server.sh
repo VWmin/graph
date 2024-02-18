@@ -15,7 +15,7 @@ ip route add 224.0.0.0/4 dev "${hostname}"-eth0
 iperf -s -u -B "$multicast_ip" > "$outfile" 2>&1 &
 
 # 等待一段时间（例如60秒）
-sleep 15
+sleep 60
 
 # 结束iperf服务器进程
 pkill iperf

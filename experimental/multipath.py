@@ -329,9 +329,9 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.logger.info(f"start experiment at {time.time()}")
 
         self.lock.acquire()
-        # instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
+        instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
         # instance = hlmr.HLMR(self.network, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
-        instance = STPInstance(self.network, self.experiment_info.D,  self.experiment_info.S2R)
+        # instance = STPInstance(self.network, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
 
         self.install_routing_trees(instance.routing_trees, self.experiment_info.S2R)
