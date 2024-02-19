@@ -99,7 +99,7 @@ def gt_itm_100():
 
 
 def gt_itm_ts(n: int):
-    return gt_itm_example(f"/home/vwmin/Desktop/gt-itm-out/ts{n}-0.alt")
+    return gt_itm_example(f"graphs/ts{n}-0.alt")
 
 
 def gt_itm_example(filename) -> nx.Graph:

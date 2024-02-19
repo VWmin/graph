@@ -20,7 +20,6 @@ import time
 
 import networkx as nx
 import requests
-import zerorpc
 from ryu import utils, cfg
 from ryu.base import app_manager
 from ryu.base.app_manager import lookup_service_brick
@@ -31,14 +30,10 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser
 from ryu.lib.packet import packet, ether_types, arp, ethernet, ipv4, lldp
 from ryu.topology import switches, event
-from ryu.topology.api import get_all_link
-from ryu.topology.switches import LLDPPacket
 
 from ryu.lib import hub
 
-import experimental.experiment_ev
 import heat_degree_matrix
-import hlmr
 
 
 def _get_exp_info():
