@@ -1,7 +1,10 @@
+import copy
+
 import networkx as nx
 import time
 
 import numpy as np
+from networkx.algorithms.approximation import steinertree
 
 import full_pll
 import util
@@ -148,6 +151,13 @@ class HeatDegreeBase:
     def init_time(self):
         return sum(map(lambda e: e[1], self.op_history))
 
+    def heat_graph(self, s):
+        g = copy.deepcopy(self.g)
+        g.remove_node(0)
+        for u, v in self.g.edges:
+            g[u][v]['weight'] = self.get_heat_degree_ij(s, u, v)
+        return g
+
 
 def general_floyd(G: nx.Graph):
     A = nx.to_numpy_array(
@@ -192,6 +202,7 @@ def general_floyd2(G: nx.Graph, weight="weight"):
                     dist_u[v] = d
     return dict(dist)
 
+
 class HeatDegreeModel:
     def __init__(self, g: nx.graph, delay_limit, bandwidth_require, src2recv):
         self.g = g
@@ -207,11 +218,9 @@ class HeatDegreeModel:
     def __routing__(self):
         t1 = time.time()
         for s in self.src2recv:
-            # self.routing_trees[s] = {}
-            # for r in self.src2recv[s]:
-            #     self.__single_source_routing__(s, r)
-            ts = KMB(self.g, list(self.src2recv[s]) + [s],
-                     weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
+            terminals = list(self.src2recv[s]) + [s]
+            ts = steinertree.steiner_tree(self._heat_base.heat_graph(s), terminals)
+            # ts = KMB(self.g, list(self.src2recv[s]) + [s], weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
             self.routing_trees[s] = nx.DiGraph()
             convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)
 

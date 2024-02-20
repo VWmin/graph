@@ -19,8 +19,8 @@ class HLMR:
         self._src2recv = s2r
         self.routing_trees = {}
         self.op_history = []
-        self._heat = heat_degree_matrix.HeatDegreeBase(self._g, self._delay_limit, self._bandwidth_require,
-                                                       self._src2recv, self.routing_trees, False)
+        self._heat_base = heat_degree_matrix.HeatDegreeBase(self._g, self._delay_limit, self._bandwidth_require,
+                                                            self._src2recv, self.routing_trees, False)
         self._routing()
 
     def _routing(self):
@@ -44,6 +44,7 @@ class HLMR:
                             tmp_cost = self.d(tmp_path)
                             if tmp_cost <= self._delay_limit[s] and self.hd(s, tmp_path) < minc:
                                 rp, minc = tmp_path, tmp_cost
+                    rp = remove_dup_element(rp)
                     tmp_trees[s][r] = rp
                 else:
                     tmp_trees[s][r] = path
@@ -75,7 +76,7 @@ class HLMR:
                 # _, ok = self._heat.check_bandwidth_limit(u, v)
                 # if not ok:
                 #     continue
-                cost = self._heat.get_heat_degree_ij(s, u, v)
+                cost = self._heat_base.get_heat_degree_ij(s, u, v)
                 vu_dist = dist[v] + cost
                 if u not in seen or vu_dist < seen[u]:
                     seen[u] = vu_dist
@@ -100,7 +101,7 @@ class HLMR:
             u, v = path[i], path[i + 1]
             if u == v:
                 continue
-            t += self._heat.get_heat_degree_ij(s, u, v)
+            t += self._heat_base.get_heat_degree_ij(s, u, v)
         return t
 
     def sp(self, s, r):
@@ -115,15 +116,23 @@ class HLMR:
 
     def statistic(self):
         print("hlmr statistic info >>> ")
-        self._heat.statistic()
+        self._heat_base.statistic()
         for op, t in self.op_history:
             print(f"operation: {op:<20} \t\t cost: {round(t, 4)}s")
 
     def init_time(self):
-        return self._heat.init_time() + self.last_time()
+        return self._heat_base.init_time() + self.last_time()
 
     def last_time(self):
         return self.op_history[-1][1]
+
+
+def remove_dup_element(arr: list):
+    new_arr = []
+    for e in arr:
+        if e not in new_arr:
+            new_arr.append(e)
+    return new_arr
 
 
 def test_hlmr():

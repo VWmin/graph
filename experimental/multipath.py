@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import copy
 import json
 import pickle
 import threading
@@ -33,6 +34,7 @@ from ryu.topology import switches, event
 
 from ryu.lib import hub
 
+import hlmr
 import heat_degree_matrix
 
 
@@ -324,17 +326,46 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.logger.info(f"start experiment at {time.time()}")
 
         self.lock.acquire()
-        instance = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
-        # instance = hlmr.HLMR(self.network, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
-        # instance = STPInstance(self.network, self.experiment_info.D,  self.experiment_info.S2R)
+
+        instance1 = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D, self.experiment_info.B,
+                                                       self.experiment_info.S2R)
+        net_cp = copy.deepcopy(self.network)
+        instance2 = hlmr.HLMR(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
+        # instance3 = STPInstance(net_cp, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
 
-        self.install_routing_trees(instance.routing_trees, self.experiment_info.S2R)
+        # self.install_routing_trees(instance2.routing_trees, self.experiment_info.S2R)
+
+        # self.check("mine", instance1.routing_trees)
+        # self.check("hlmr", instance2.routing_trees)
+        # self.check("stp ", instance3.routing_trees)
+        self.check_heat("mine", instance1)
+        print()
+        self.check_heat("hlmr", instance2)
 
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
-        hub.sleep(3)
-        _start_exp()
+        hub.sleep(30)
+        # _start_exp()
         self.logger.info("send ok to start script.")
+
+    def check_heat(self, name, instance):
+        print(f"{name} >>> ")
+        for s in self.experiment_info.S2R:
+            g = instance._heat_base.heat_graph(s)
+            heat = {(u, v): g[u][v]['weight'] for u, v in g.edges}
+            print(f"heat: {heat}")
+
+    def check(self, name, routing_trees):
+        total_bw, total_delay = 0, 0
+        for root, tree in routing_trees.items():
+            tree_bw, tree_delay = 0, 0
+            for u, v in tree.edges:
+                tree_bw += self.network[u][v]['bandwidth']
+                tree_delay += self.network[u][v]['weight']
+            print(f"{name} root={root}, tree bw={tree_bw}, tree delay={tree_delay}")
+            total_bw += tree_bw
+            total_delay += tree_delay
+        print(f"{name} total tree bw={total_bw}, tree delay={total_delay}")
 
     def install_routing_trees(self, trees, S2R):
         output = {}
@@ -425,7 +456,6 @@ class STPInstance:
                     trees[s][r] = []
                     continue
                 for i in range(len(path) - 1):
-                    self.routing_trees[s].add_edge(path[i], path[i+1])
+                    self.routing_trees[s].add_edge(path[i], path[i + 1])
 
         self.op_histories.append(("routing", time.time() - t))
-
