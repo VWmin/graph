@@ -278,10 +278,10 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.handle_arp(datapath, msg, arp_pkt, eth, in_port)
 
         elif eth.ethertype == ether_types.ETH_TYPE_IP:
-            ip_pkt = pkt.get_protocol(ipv4.ipv4)
-            self.logger.info("dpid=%s processing %s --> %s", dpid, ip_pkt.src, ip_pkt.dst)
+            # ip_pkt = pkt.get_protocol(ipv4.ipv4)
+            # self.logger.info("dpid=%s processing %s --> %s", dpid, ip_pkt.src, ip_pkt.dst)
             if dpid not in self.mac_to_port:
-                self.logger.info("Dpid=%s is not in mac_to_port", dpid)
+                # self.logger.info("Dpid=%s is not in mac_to_port", dpid)
                 return
             if eth.dst in self.mac_to_port[dpid]:
                 # Normal flows
@@ -291,8 +291,6 @@ class MULTIPATH_13(app_manager.RyuApp):
                 #                         ipv4_src=ip_pkt.src, ipv4_dst=ip_pkt.dst)
                 # self.add_flow(datapath, 1, match, actions)
                 self.send_packet_out(datapath, msg, actions)
-            elif ip_pkt.dst == '224.0.1.1':
-                self.logger.debug("dpid=%s recv multicast req", datapath.id)
 
     def shortest_path_forward(self, datapath, msg, dst_dpid):
         """
@@ -318,7 +316,7 @@ class MULTIPATH_13(app_manager.RyuApp):
                 self.send_packet_out(datapath, msg, actions)
 
     def run_experiment(self):
-        hub.sleep(10)
+        hub.sleep(120)
         self.logger.info(f"enter experiment at {time.time()}")
         while not self.link_flag:
             hub.sleep(10)
@@ -327,45 +325,53 @@ class MULTIPATH_13(app_manager.RyuApp):
 
         self.lock.acquire()
 
-        instance1 = heat_degree_matrix.HeatDegreeModel(self.network, self.experiment_info.D, self.experiment_info.B,
-                                                       self.experiment_info.S2R)
         net_cp = copy.deepcopy(self.network)
-        instance2 = hlmr.HLMR(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
+        instance1 = heat_degree_matrix.HeatDegreeModel(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
+        # instance2 = hlmr.HLMR(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
         # instance3 = STPInstance(net_cp, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
 
-        # self.install_routing_trees(instance2.routing_trees, self.experiment_info.S2R)
+        self.install_routing_trees(instance1.routing_trees, self.experiment_info.S2R)
 
-        # self.check("mine", instance1.routing_trees)
-        # self.check("hlmr", instance2.routing_trees)
+        # self.check("mine", instance1)
+        # print()
+        # self.check("hlmr", instance2)
         # self.check("stp ", instance3.routing_trees)
-        self.check_heat("mine", instance1)
-        print()
-        self.check_heat("hlmr", instance2)
+        # self.check_heat("mine", instance1)
+        # print()
+        # self.check_heat("hlmr", instance2)
 
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
         hub.sleep(30)
-        # _start_exp()
+        _start_exp()
         self.logger.info("send ok to start script.")
 
     def check_heat(self, name, instance):
         print(f"{name} >>> ")
         for s in self.experiment_info.S2R:
+        # s = 147
+        # i = 1
+        # j = 162
             g = instance._heat_base.heat_graph(s)
-            heat = {(u, v): g[u][v]['weight'] for u, v in g.edges}
-            print(f"heat: {heat}")
+            heat = {(u, v): round(g[u][v]['weight'], 3) for u, v in g.edges}
+        # heat = instance._heat_base.heat
+        #     heat = instance._heat_base.get_heat_degree_ij(s, i, j)
+            print(f"{s} heat: {heat}")
 
-    def check(self, name, routing_trees):
-        total_bw, total_delay = 0, 0
+    def check(self, name, instance):
+        routing_trees = instance.routing_trees
+        total_bw, total_delay, total_heat = 0, 0, 0
         for root, tree in routing_trees.items():
-            tree_bw, tree_delay = 0, 0
+            tree_bw, tree_delay, tree_heat = 0, 0, 0
             for u, v in tree.edges:
                 tree_bw += self.network[u][v]['bandwidth']
                 tree_delay += self.network[u][v]['weight']
-            print(f"{name} root={root}, tree bw={tree_bw}, tree delay={tree_delay}")
+                tree_heat += instance._heat_base.get_heat_degree_ij(root, u, v)
+            print(f"{name} root={root}, tree bw={tree_bw}, tree delay={tree_delay}, tree heat={tree_heat}")
             total_bw += tree_bw
             total_delay += tree_delay
-        print(f"{name} total tree bw={total_bw}, tree delay={total_delay}")
+            total_heat += tree_heat
+        print(f"{name} total tree bw={total_bw}, tree delay={total_delay}, tree heat={total_heat}")
 
     def install_routing_trees(self, trees, S2R):
         output = {}

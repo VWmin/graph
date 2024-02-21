@@ -77,23 +77,25 @@ class HeatDegreeBase:
 
     def get_heat_degree_ij(self, s, i, j):
         i, j = (i, j) if i < j else (j, i)
-        # 如果边ij是s的候选边，且已在以s为源的现存多播树中
-        # or 边ij是s的候选边，但不在以r为源的现存多播树中，且边ij的带宽满足所有以其为候选边的源的带宽要求之和
+        # (1) 边ij是s的候选边
         if s in self.relevance[i][j]:
+            # (2) 在以s为源的现存多播树中
             in_routing_tree = self.is_routing_contains_edge(s, i, j)
+            # (3) 不在以r为源的现存多播树中，但边ij的带宽满足所有以其为候选边的源的带宽要求之和
             edge_available = self.heat[i][j][2]
             if in_routing_tree or edge_available:
-                return self.heat[i][j][0]
+                return self.heat[i][j][0]  # (1) and ((2) or (3))
             else:
-                return self.heat[i][j][1]
+                return self.heat[i][j][1]  # (1)
+        # (4) 边ij不是s的候选边
         else:
-            return inf
+            return inf  # (4)
 
     def is_routing_contains_edge(self, s, u, v) -> bool:
         if s not in self.routing_trees:
             return False
         if isinstance(self.routing_trees[s], nx.Graph):
-            return self.routing_trees[s].has_edge(u, v)
+            return self.routing_trees[s].has_edge(u, v) or self.routing_trees[s].has_edge(v, u)
         else:
             for recv in self.routing_trees[s]:
                 path = self.routing_trees[s][recv]
@@ -219,7 +221,10 @@ class HeatDegreeModel:
         t1 = time.time()
         for s in self.src2recv:
             terminals = list(self.src2recv[s]) + [s]
-            ts = steinertree.steiner_tree(self._heat_base.heat_graph(s), terminals)
+            # g = copy.deepcopy(self.g)
+            # g.remove_node(0)
+            g = self._heat_base.heat_graph(s)
+            ts = steinertree.steiner_tree(g, terminals)
             # ts = KMB(self.g, list(self.src2recv[s]) + [s], weight=lambda u, v, d: self._heat_base.get_heat_degree_ij(s, u, v))
             self.routing_trees[s] = nx.DiGraph()
             convert_routing_tree_to_digraph(ts, self.routing_trees[s], s, None)

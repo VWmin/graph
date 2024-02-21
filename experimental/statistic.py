@@ -5,8 +5,8 @@ import re
 
 import networkx as nx
 
-# exp_type = "mine"
-exp_type = "hlmr"
+exp_type = "mine"
+# exp_type = "hlmr"
 # exp_type = "igmp"
 # exp_type = "stp"
 igmp = exp_type == "igmp"
@@ -54,6 +54,9 @@ for root, dirs, files in os.walk(iperf_path):
             for pos in range(len(lines)):
                 if "[ ID] Interval" in lines[pos]:
                     break
+            if pos+1 > len(lines):
+                continue
+            # print(pos+1, len(lines))
             line = lines[pos + 1]
             match_bw = re.search(r'([1-9]\d*\.?\d*\s+[K,M])', line)
             match_ms = re.search(r'(\d+\.\d+\s+ms)', line)
