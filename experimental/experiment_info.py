@@ -1,7 +1,10 @@
 import json
+import math
 import random
 
 import networkx as nx
+
+import random_graph
 
 
 class ExperimentInfo:
@@ -20,7 +23,7 @@ class ExperimentInfo:
 
         self.total_bw = set_random_bw(self.graph, "bandwidth", b_lo, b_hi)
         add_attr_with_random_value(self.graph, "weight", d_lo, d_hi)
-        self.S = random_s_from_graph(self.graph, 10)
+        self.S = random_s_from_graph(self.graph, 1)
         self.S2R = random_s2r_from_graph(self.graph, 10, self.S)
         self.B = random_b_with_range(self.S, b_req_lo, b_req_hi)
         self.D = random_d_with_range(self.S, d_req_lo, d_req_hi)
@@ -54,6 +57,25 @@ class ExperimentInfo:
 
     def src_to_group_ip(self, src):
         return f'224.0.1.{self.src_to_group_no[src]}'
+
+    def add_random_r(self):
+        s = random.choice(list(self.S))
+        nodes = list(self.graph.nodes)
+        r = random.choice(nodes)
+        while r in self.S2R[s]:
+            r = random.choice(nodes)
+        self.S2R[s].add(r)
+
+    def remove_random_r(self):
+        s = random.choice(list(self.S))
+        r = random.choice(list(self.S2R[s]))
+        self.S2R[s].remove(r)
+
+    def inc_link_delay(self, u, v):
+        self.graph[u][v]['weight'] = self.graph[u][v]['weight'] * 1.3
+
+    def disable_link(self, u, v):
+        self.graph[u][v]['weight'] = math.inf
 
 
 def add_attr_with_random_value(g, name, lo, hi):
@@ -107,3 +129,12 @@ def random_s2r_from_graph(g: nx.Graph, number, src_set):
             ret[s].add(t)
             used.add(t)
     return ret
+
+
+if __name__ == '__main__':
+    expinfo = ExperimentInfo(graph=random_graph.gt_itm_ts(100))
+    print(expinfo.S2R)
+    expinfo.add_random_r()
+    print(expinfo.S2R)
+    expinfo.remove_random_r()
+    print(expinfo.S2R)

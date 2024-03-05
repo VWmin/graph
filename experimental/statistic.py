@@ -5,13 +5,17 @@ import re
 
 import networkx as nx
 
-exp_type = "mine"
+# exp_type = "mine"
 # exp_type = "hlmr"
+exp_type = "stp"
 # exp_type = "igmp"
-# exp_type = "stp"
+
 igmp = exp_type == "igmp"
 
-with open(f'result/{exp_type}/ev_setting.json', 'r') as json_file:
+rootpath = f"result/{exp_type}/"
+# rootpath = f"result/{exp_type}/achive/r1/"
+
+with open(rootpath + 'ev_setting.json', 'r') as json_file:
     ev = json.load(json_file)
 ev["group_to_src"] = {value: key for key, value in ev["src_to_group"].items()}
 total_bw = ev["total_bw"]  # sum of all edge bw
@@ -19,7 +23,7 @@ routing_trees = {}
 number_of_groups = len(ev["src_to_group"])
 
 if not igmp:
-    with open(f'result/{exp_type}/routing_trees.json', 'r') as json_file:
+    with open(rootpath + 'routing_trees.json', 'r') as json_file:
         routing_trees_json = json.load(json_file)
         for root, edges in routing_trees_json.items():
             routing_trees[root] = nx.Graph()
@@ -28,8 +32,8 @@ if not igmp:
                 routing_trees[root].add_edge(u, v)
 
 # jitter
-iperf_path = f'result/{exp_type}/iperf'
-libtins_path = f'result/{exp_type}/libtins'
+iperf_path = rootpath + 'iperf'
+libtins_path = rootpath + 'libtins'
 
 # print("bw, jitter, lost rate >>>")
 tot_avg_bw, tot_avg_jitter, tot_avg_lose = 0, 0, 0
@@ -54,7 +58,7 @@ for root, dirs, files in os.walk(iperf_path):
             for pos in range(len(lines)):
                 if "[ ID] Interval" in lines[pos]:
                     break
-            if pos+1 > len(lines):
+            if pos + 1 >= len(lines):
                 continue
             # print(pos+1, len(lines))
             line = lines[pos + 1]
@@ -82,7 +86,7 @@ for root, dirs, files in os.walk(iperf_path):
         tot_avg_bw += bw_use_rate
         tot_avg_jitter += avg_jitter
 print(f"bw: {tot_avg_bw / number_of_groups}")
-print(f"lose: {tot_avg_lose /  number_of_groups}")
+print(f"lose: {tot_avg_lose / number_of_groups}")
 print(f"jitter: {tot_avg_jitter / number_of_groups}")
 
 # print("delay >>>")
@@ -90,7 +94,7 @@ tot_avg_delay = 0
 for root, dirs, files in os.walk(libtins_path):
     group_to_file_names = {group: [] for group in ev["group_to_src"]}
     for file_name in files:
-        group = int(file_name[1])
+        group = int(file_name.split('-')[0][1:])
         group_to_file_names[group].append(file_name)
 
     for group in group_to_file_names:

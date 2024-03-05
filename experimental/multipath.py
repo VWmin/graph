@@ -16,6 +16,8 @@
 import copy
 import json
 import pickle
+import random
+import subprocess
 import threading
 import time
 
@@ -34,8 +36,8 @@ from ryu.topology import switches, event
 
 from ryu.lib import hub
 
-import hlmr
 import heat_degree_matrix
+import hlmr
 
 
 def _get_exp_info():
@@ -315,8 +317,40 @@ class MULTIPATH_13(app_manager.RyuApp):
                 actions = [parser.OFPActionOutput(out_port)]
                 self.send_packet_out(datapath, msg, actions)
 
+    def clear_flow_and_group_entries(self, dpid, gpid):
+        # self.show_flow_entries(dpid)
+        dp = self.datapaths[dpid]
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        # 构建删除流表项的请求
+        match = parser.OFPMatch()
+        mod = parser.OFPFlowMod(
+            datapath=dp,
+            command=ofp.OFPFC_DELETE,
+            out_port=ofp.OFPP_ANY,
+            out_group=ofp.OFPG_ANY,
+            priority=0,
+            match=match,
+            instructions=[]
+        )
+        dp.send_msg(mod)
+
+        # install table-miss flow entry
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+        self.add_flow(dp, 0, match, actions)
+
+        # 构建组表项删除请求
+        group_id = gpid
+        req = parser.OFPGroupMod(dp, command=ofp.OFPGC_DELETE, type_=ofp.OFPGT_ALL, group_id=group_id, buckets=[])
+        dp.send_msg(req)
+
+        print(f"cleared flow & group entries for dpid={dpid}")
+        # self.show_flow_entries(dpid)
+
     def run_experiment(self):
-        hub.sleep(120)
+        hub.sleep(30)
         self.logger.info(f"enter experiment at {time.time()}")
         while not self.link_flag:
             hub.sleep(10)
@@ -326,36 +360,100 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.lock.acquire()
 
         net_cp = copy.deepcopy(self.network)
-        instance1 = heat_degree_matrix.HeatDegreeModel(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
+        instance1 = heat_degree_matrix.HeatDegreeModel(net_cp, self.experiment_info.D, self.experiment_info.B,
+                                                       self.experiment_info.S2R)
         # instance2 = hlmr.HLMR(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
         # instance3 = STPInstance(net_cp, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
 
         self.install_routing_trees(instance1.routing_trees, self.experiment_info.S2R)
 
-        # self.check("mine", instance1)
-        # print()
-        # self.check("hlmr", instance2)
-        # self.check("stp ", instance3.routing_trees)
-        # self.check_heat("mine", instance1)
-        # print()
-        # self.check_heat("hlmr", instance2)
-
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
         hub.sleep(30)
-        _start_exp()
+        src = random.choice(list(instance1.routing_trees.keys()))
+        dpid = random.choice(list(instance1.routing_trees[src].nodes))
+        self.clear_flow_and_group_entries(dpid, self.experiment_info.src_to_group_no[src])
+        # _start_exp()
         self.logger.info("send ok to start script.")
+
+        self.change_by_time(instance1)
+
+    def show_flow_entries(self, dpid):
+        cmd = f"ovs-ofctl dump-flows s{dpid}"
+        print(f"{cmd} >>>")
+        subprocess.run(cmd, shell=True)
+
+    def show_group_entries(self, dpid):
+        cmd = f"ovs-ofctl dump-groups s{dpid}"
+        print(f"{cmd} >>>")
+        subprocess.run(cmd, shell=True)
+
+    def change_by_time(self, pre_instance):
+        name = "mine"
+        s = list(self.experiment_info.S)[0]
+        nx.write_graphml(pre_instance.routing_trees[s], f"change/{name}-{0}.graphml")
+        self.save_entries(pre_instance.routing_trees[s], 0)
+        self.clear_entries(pre_instance.routing_trees)
+        hub.sleep(30)
+        for i in range(1, 11):
+            print(f"turn {i} >>> ")
+            now_instance = self.change_once(pre_instance, heat_degree_matrix.HeatDegreeModel)
+            # now_instance = self.change_once(pre_instance, hlmr.HLMR)
+            self.install_routing_trees(now_instance.routing_trees, self.experiment_info.S2R)
+            hub.sleep(30)
+            # prepare for next turn
+            pre_instance = now_instance
+            nx.write_graphml(pre_instance.routing_trees[s], f"change/{name}-{i}.graphml")
+            self.save_entries(pre_instance.routing_trees[s], i)
+            self.clear_entries(pre_instance.routing_trees)
+
+    def change_once(self, pre_instance, method):
+        op = random.randint(1, 4)
+        if op == 1:
+            self.experiment_info.add_random_r()
+        elif op == 2:
+            self.experiment_info.remove_random_r()
+        elif op == 3:
+            src = random.choice(list(pre_instance.routing_trees.keys()))
+            u, v = random.choice(list(pre_instance.routing_trees[src].edges))
+            self.experiment_info.inc_link_delay(u, v)
+        else:
+            src = random.choice(list(pre_instance.routing_trees.keys()))
+            u, v = random.choice(list(pre_instance.routing_trees[src].edges))
+            self.experiment_info.disable_link(u, v)
+        instance = method(self.experiment_info.graph, self.experiment_info.D,
+                          self.experiment_info.B, self.experiment_info.S2R)
+        return instance
+
+    def clear_entries(self, routing_trees):
+        for src, tree in routing_trees.items():
+            gpid = self.experiment_info.src_to_group_no[src]
+            for n in tree.nodes:
+                self.clear_flow_and_group_entries(n, gpid)
+
+    def save_entries(self, tree, round):
+        content = ""
+        for n in tree.nodes:
+            command = f"ovs-ofctl dump-flows s{n}"
+            result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            content += command + "\n"
+            content += result.stdout + "\n"
+
+            command = f"ovs-ofctl dump-groups s{n}"
+            result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            content += command + "\n"
+            content += result.stdout + "\n"
+
+        with open(f"change/mine-{round}.txt", "w") as file:
+            file.write(content)
 
     def check_heat(self, name, instance):
         print(f"{name} >>> ")
         for s in self.experiment_info.S2R:
-        # s = 147
-        # i = 1
-        # j = 162
             g = instance._heat_base.heat_graph(s)
             heat = {(u, v): round(g[u][v]['weight'], 3) for u, v in g.edges}
-        # heat = instance._heat_base.heat
-        #     heat = instance._heat_base.get_heat_degree_ij(s, i, j)
+            # heat = instance._heat_base.heat
+            #     heat = instance._heat_base.get_heat_degree_ij(s, i, j)
             print(f"{s} heat: {heat}")
 
     def check(self, name, instance):

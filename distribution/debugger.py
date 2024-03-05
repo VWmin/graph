@@ -7,7 +7,7 @@ from ryu.cmd import manager
 
 
 def main():
-    sys.argv.append('/home/vwmin/anaconda3/envs/multicast/lib/python3.7/site-packages/ryu/app/simple_switch_13.py')
+    sys.argv.append('/home/fwy/anaconda3/envs/ryu-multicast/lib/python3.7/site-packages/ryu/app/simple_switch_13.py')
     sys.argv.append('--verbose')
     sys.argv.append('--enable-debugger')
     sys.argv.append('--observe-links')
