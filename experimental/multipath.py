@@ -346,7 +346,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         req = parser.OFPGroupMod(dp, command=ofp.OFPGC_DELETE, type_=ofp.OFPGT_ALL, group_id=group_id, buckets=[])
         dp.send_msg(req)
 
-        print(f"cleared flow & group entries for dpid={dpid}")
+        # print(f"cleared flow & group entries for dpid={dpid}")
         # self.show_flow_entries(dpid)
 
     def run_experiment(self):
@@ -360,8 +360,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         self.lock.acquire()
 
         net_cp = copy.deepcopy(self.network)
-        instance1 = heat_degree_matrix.HeatDegreeModel(net_cp, self.experiment_info.D, self.experiment_info.B,
-                                                       self.experiment_info.S2R)
+        instance1 = heat_degree_matrix.HeatDegreeModel(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
         # instance2 = hlmr.HLMR(net_cp, self.experiment_info.D, self.experiment_info.B, self.experiment_info.S2R)
         # instance3 = STPInstance(net_cp, self.experiment_info.D,  self.experiment_info.S2R)
         self.lock.release()
@@ -370,13 +369,11 @@ class MULTIPATH_13(app_manager.RyuApp):
 
         self.logger.info(f"install group flow ok, s2r is {self.experiment_info.S2R}")
         hub.sleep(30)
-        src = random.choice(list(instance1.routing_trees.keys()))
-        dpid = random.choice(list(instance1.routing_trees[src].nodes))
-        self.clear_flow_and_group_entries(dpid, self.experiment_info.src_to_group_no[src])
+
         # _start_exp()
         self.logger.info("send ok to start script.")
 
-        self.change_by_time(instance1)
+        self.change_by_time("mine", heat_degree_matrix.HeatDegreeModel, instance1)
 
     def show_flow_entries(self, dpid):
         cmd = f"ovs-ofctl dump-flows s{dpid}"
@@ -388,24 +385,24 @@ class MULTIPATH_13(app_manager.RyuApp):
         print(f"{cmd} >>>")
         subprocess.run(cmd, shell=True)
 
-    def change_by_time(self, pre_instance):
-        name = "mine"
+    def change_by_time(self, name, method, pre_instance):
+        random.seed(42)
         s = list(self.experiment_info.S)[0]
         nx.write_graphml(pre_instance.routing_trees[s], f"change/{name}-{0}.graphml")
-        self.save_entries(pre_instance.routing_trees[s], 0)
+        self.save_entries(name, pre_instance.routing_trees[s], 0)
         self.clear_entries(pre_instance.routing_trees)
-        hub.sleep(30)
+        hub.sleep(15)
         for i in range(1, 11):
             print(f"turn {i} >>> ")
-            now_instance = self.change_once(pre_instance, heat_degree_matrix.HeatDegreeModel)
-            # now_instance = self.change_once(pre_instance, hlmr.HLMR)
+            now_instance = self.change_once(pre_instance, method)
             self.install_routing_trees(now_instance.routing_trees, self.experiment_info.S2R)
-            hub.sleep(30)
+            hub.sleep(15)
             # prepare for next turn
             pre_instance = now_instance
             nx.write_graphml(pre_instance.routing_trees[s], f"change/{name}-{i}.graphml")
-            self.save_entries(pre_instance.routing_trees[s], i)
+            self.save_entries(name, pre_instance.routing_trees[s], i)
             self.clear_entries(pre_instance.routing_trees)
+        print("change by time finished.")
 
     def change_once(self, pre_instance, method):
         op = random.randint(1, 4)
@@ -419,7 +416,16 @@ class MULTIPATH_13(app_manager.RyuApp):
             self.experiment_info.inc_link_delay(u, v)
         else:
             src = random.choice(list(pre_instance.routing_trees.keys()))
-            u, v = random.choice(list(pre_instance.routing_trees[src].edges))
+            tree = pre_instance.routing_trees[src]
+            u, v = random.choice(list(tree.edges))
+            netcp = copy.deepcopy(self.experiment_info.graph)
+            netcp.remove_node(0)
+            netcp.remove_edge(u, v)
+            while not nx.is_connected(netcp):
+                netcp.add_edge(u, v)
+                u, v = random.choice(list(tree.edges))
+                netcp.remove_edge(u, v)
+
             self.experiment_info.disable_link(u, v)
         instance = method(self.experiment_info.graph, self.experiment_info.D,
                           self.experiment_info.B, self.experiment_info.S2R)
@@ -431,7 +437,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             for n in tree.nodes:
                 self.clear_flow_and_group_entries(n, gpid)
 
-    def save_entries(self, tree, round):
+    def save_entries(self, name, tree, turn):
         content = ""
         for n in tree.nodes:
             command = f"ovs-ofctl dump-flows s{n}"
@@ -444,7 +450,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             content += command + "\n"
             content += result.stdout + "\n"
 
-        with open(f"change/mine-{round}.txt", "w") as file:
+        with open(f"change/{name}-{turn}.txt", "w") as file:
             file.write(content)
 
     def check_heat(self, name, instance):
@@ -487,7 +493,7 @@ class MULTIPATH_13(app_manager.RyuApp):
             for edge in tree.edges():
                 graph_string += f"{edge[0]} -> {edge[1]};\n"
                 output[src].append(f"{edge[0]}-{edge[1]}")
-            self.logger.info(f"the routing tree of {src} is {graph_string}")
+            # self.logger.info(f"the routing tree of {src} is {graph_string}")
 
         # dump routing trees to file.
         with open('routing_trees.json', 'w') as json_file:
@@ -499,7 +505,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         succ = list(tree.successors(cur_node))
 
         if len(succ) > 0:
-            self.logger.info("installing group table and flow to %s", cur_node)
+            # self.logger.info("installing group table and flow to %s", cur_node)
             out_ports = [self.network[cur_node][e]['dpid_to_port'][e] for e in succ]
             if cur_node in recvs:
                 out_ports.append(1)
@@ -530,7 +536,7 @@ class MULTIPATH_13(app_manager.RyuApp):
         # self.dp_to_flow_mod[datapath.id].append(actions)
 
     def add_flow_to_connected_host(self, datapath, multicast_ip):
-        self.logger.info("installing sw to host flow to %s", datapath.id)
+        # self.logger.info("installing sw to host flow to %s", datapath.id)
         parser = datapath.ofproto_parser
         match = parser.OFPMatch(eth_type=0x800, ipv4_dst=multicast_ip)
         actions = [parser.OFPActionOutput(1)]

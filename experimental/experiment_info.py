@@ -4,7 +4,6 @@ import random
 
 import networkx as nx
 
-import random_graph
 
 
 class ExperimentInfo:
@@ -65,17 +64,21 @@ class ExperimentInfo:
         while r in self.S2R[s]:
             r = random.choice(nodes)
         self.S2R[s].add(r)
+        print(f"add receiver {r}")
 
     def remove_random_r(self):
         s = random.choice(list(self.S))
         r = random.choice(list(self.S2R[s]))
         self.S2R[s].remove(r)
+        print(f"remove receiver {r}")
 
     def inc_link_delay(self, u, v):
         self.graph[u][v]['weight'] = self.graph[u][v]['weight'] * 1.3
+        print(f"inc edge {u, v} delay")
 
     def disable_link(self, u, v):
         self.graph[u][v]['weight'] = math.inf
+        print(f"disable edge {u, v}")
 
 
 def add_attr_with_random_value(g, name, lo, hi):
@@ -131,10 +134,12 @@ def random_s2r_from_graph(g: nx.Graph, number, src_set):
     return ret
 
 
-if __name__ == '__main__':
-    expinfo = ExperimentInfo(graph=random_graph.gt_itm_ts(100))
-    print(expinfo.S2R)
-    expinfo.add_random_r()
-    print(expinfo.S2R)
-    expinfo.remove_random_r()
-    print(expinfo.S2R)
+# if __name__ == '__main__':
+# import random_graph
+
+#     expinfo = ExperimentInfo(graph=random_graph.gt_itm_ts(100))
+#     print(expinfo.S2R)
+#     expinfo.add_random_r()
+#     print(expinfo.S2R)
+#     expinfo.remove_random_r()
+#     print(expinfo.S2R)
