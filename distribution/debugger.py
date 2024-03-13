@@ -3,14 +3,21 @@
 
 import sys
 
+from ryu import cfg
 from ryu.cmd import manager
+
+cfg.CONF.register_cli_opts([cfg.IntOpt('controller-id', default=1, help='distribution controller id (default %s)' % 1), ])
 
 
 def main():
-    sys.argv.append('/home/fwy/anaconda3/envs/ryu-multicast/lib/python3.7/site-packages/ryu/app/simple_switch_13.py')
-    sys.argv.append('--verbose')
+    sys.argv.append('/home/fwy/Desktop/graph/distribution/controller.py')
+    # sys.argv.append('--verbose')
     sys.argv.append('--enable-debugger')
     sys.argv.append('--observe-links')
+    sys.argv.append('--wsapi-port')
+    sys.argv.append('8000')
+    sys.argv.append('--controller-id')
+    sys.argv.append('1')
     manager.main()
 
 

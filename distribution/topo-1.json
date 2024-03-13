@@ -1,0 +1,227 @@
+{
+  "controllers": [
+    {
+      "identify": "192.168.92.128.0.0.104.147.0.0.0.0.10.0.0.3",
+      "c_id": 1,
+      "is_live": true
+    },
+    {
+      "identify": "192.168.92.128.0.0.104.219.0.0.0.0.10.0.0.3",
+      "c_id": 2,
+      "is_live": true
+    }
+  ],
+  "switches": [
+    {
+      "c_id": 1,
+      "dp_id": 1,
+      "port_num": 3
+    },
+    {
+      "c_id": 1,
+      "dp_id": 2,
+      "port_num": 4
+    },
+    {
+      "c_id": 2,
+      "dp_id": 4,
+      "port_num": 3
+    },
+    {
+      "c_id": 2,
+      "dp_id": 3,
+      "port_num": 4
+    }
+  ],
+  "ports": [
+    {
+      "dp_id": 1,
+      "port_no": 1,
+      "hw_addr": "b6:2b:9e:82:37:69",
+      "name": "s1-eth1",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 1,
+      "port_no": 2,
+      "hw_addr": "9e:b7:6a:c7:16:00",
+      "name": "s1-eth2",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 1,
+      "port_no": 3,
+      "hw_addr": "6e:73:a1:11:06:26",
+      "name": "s1-eth3",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 2,
+      "port_no": 1,
+      "hw_addr": "12:bb:e0:42:fd:ed",
+      "name": "s2-eth1",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 2,
+      "port_no": 4,
+      "hw_addr": "2e:7a:64:73:cb:a0",
+      "name": "s2-eth4",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 2,
+      "port_no": 2,
+      "hw_addr": "46:f1:7f:be:3e:06",
+      "name": "s2-eth2",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 2,
+      "port_no": 3,
+      "hw_addr": "1e:bb:52:c1:c5:50",
+      "name": "s2-eth3",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 4,
+      "port_no": 1,
+      "hw_addr": "3a:d2:fc:85:9f:6f",
+      "name": "s4-eth1",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 4,
+      "port_no": 2,
+      "hw_addr": "7a:20:09:cb:87:d2",
+      "name": "s4-eth2",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 4,
+      "port_no": 3,
+      "hw_addr": "f2:56:23:a3:da:93",
+      "name": "s4-eth3",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 3,
+      "port_no": 4,
+      "hw_addr": "76:86:da:8f:a4:02",
+      "name": "s3-eth4",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 3,
+      "port_no": 1,
+      "hw_addr": "d2:32:fb:e6:ac:6d",
+      "name": "s3-eth1",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 3,
+      "port_no": 2,
+      "hw_addr": "4e:31:73:dd:d7:f7",
+      "name": "s3-eth2",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    },
+    {
+      "dp_id": 3,
+      "port_no": 3,
+      "hw_addr": "9e:ac:3b:6e:e2:3b",
+      "name": "s3-eth3",
+      "is_live": true,
+      "ofproto": "v1.3",
+      "config": 0,
+      "state": 4
+    }
+  ],
+  "links": [
+    {
+      "src_dp_id": 1,
+      "src_port_no": 1,
+      "dst_dp_id": 2,
+      "dst_port_no": 2
+    },
+    {
+      "src_dp_id": 2,
+      "src_port_no": 2,
+      "dst_dp_id": 1,
+      "dst_port_no": 1
+    },
+    {
+      "src_dp_id": 4,
+      "src_port_no": 3,
+      "dst_dp_id": 3,
+      "dst_port_no": 4
+    },
+    {
+      "src_dp_id": 3,
+      "src_port_no": 4,
+      "dst_dp_id": 4,
+      "dst_port_no": 3
+    }
+  ],
+  "hosts": [
+    {
+      "dp_id": 3,
+      "port_no": 1,
+      "mac": "12:bb:e0:42:fd:ed",
+      "ipv4": "",
+      "ipv6": "fe80::10bb:e0ff:fe42:fded"
+    },
+    {
+      "dp_id": 2,
+      "port_no": 1,
+      "mac": "d2:32:fb:e6:ac:6d",
+      "ipv4": "",
+      "ipv6": "fe80::d032:fbff:fee6:ac6d"
+    },
+    {
+      "dp_id": 2,
+      "port_no": 4,
+      "mac": "7e:eb:02:5d:aa:6d",
+      "ipv4": "",
+      "ipv6": "fe80::7ceb:2ff:fe5d:aa6d"
+    }
+  ]
+}
